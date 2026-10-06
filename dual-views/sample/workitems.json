@@ -1,0 +1,62 @@
+{
+  "items": [
+    {
+      "key": "o-visual-brain",
+      "kind": "outcome",
+      "title": "Fractal visual brain — see everything, lose nothing",
+      "flowOrder": 1,
+      "url": "https://github.com/example/launchpad/issues/1"
+    },
+    {
+      "key": "o-outcome-dev",
+      "kind": "outcome",
+      "title": "Outcome-driven development — trace code to JTBD",
+      "flowOrder": 2,
+      "url": "https://github.com/example/launchpad/issues/2"
+    },
+    {
+      "key": "o-agent-flow",
+      "kind": "outcome",
+      "title": "Agentic delivery — agents execute leaves, humans approve",
+      "flowOrder": 3,
+      "url": "https://github.com/example/launchpad/issues/3"
+    },
+
+    { "key": "c-static-positions", "kind": "capability", "title": "Static-position guarantee", "parent": "o-visual-brain", "url": "https://github.com/example/launchpad/issues/10" },
+    { "key": "c-multi-view", "kind": "capability", "title": "Multiple projections of one tree", "parent": "o-visual-brain", "url": "https://github.com/example/launchpad/issues/11" },
+    { "key": "c-fractal-recursion", "kind": "capability", "title": "Infinite fractal drill-down", "parent": "o-visual-brain", "url": "https://github.com/example/launchpad/issues/12" },
+
+    { "key": "c-dual-views", "kind": "capability", "title": "Dual projection engine", "parent": "o-outcome-dev", "url": "https://github.com/example/launchpad/issues/20" },
+    { "key": "c-honest-rollups", "kind": "capability", "title": "Honest roll-ups from real signals", "parent": "o-outcome-dev", "url": "https://github.com/example/launchpad/issues/21" },
+
+    { "key": "c-agent-tasks", "kind": "capability", "title": "One task = one branch = one PR", "parent": "o-agent-flow", "url": "https://github.com/example/launchpad/issues/30" },
+    { "key": "c-alignment", "kind": "capability", "title": "Agent alignment artifacts", "parent": "o-agent-flow", "url": "https://github.com/example/launchpad/issues/31" },
+
+    { "key": "svc-fractal-index", "kind": "service", "title": "fractal-index (ea-script)" },
+    { "key": "svc-dual-views", "kind": "service", "title": "dual-views (generator)" },
+    { "key": "svc-obsidian-plugin", "kind": "service", "title": "obsidian-excalidraw-plugin" },
+    { "key": "svc-ci", "kind": "service", "title": "CI + automation" },
+
+    { "key": "t-slot-engine", "kind": "task", "title": "Slot engine with customData identity", "capability": "c-static-positions", "service": "svc-fractal-index", "status": "done", "size": 3, "url": "https://github.com/example/launchpad/issues/40" },
+    { "key": "t-rename-stability", "kind": "task", "title": "Rename/move position stability", "capability": "c-static-positions", "service": "svc-fractal-index", "status": "done", "size": 2, "url": "https://github.com/example/launchpad/issues/41" },
+    { "key": "t-obsidian-smoke", "kind": "task", "title": "Live Obsidian smoke test", "capability": "c-static-positions", "service": "svc-obsidian-plugin", "status": "todo", "size": 2, "url": "https://github.com/example/launchpad/issues/42" },
+
+    { "key": "t-treemap", "kind": "task", "title": "Treemap projection (Plotly)", "capability": "c-dual-views", "service": "svc-dual-views", "status": "done", "size": 3, "url": "https://github.com/example/launchpad/issues/50" },
+    { "key": "t-storymap", "kind": "task", "title": "Story-map projection (Excalidraw)", "capability": "c-dual-views", "service": "svc-dual-views", "status": "done", "size": 3, "url": "https://github.com/example/launchpad/issues/51" },
+    { "key": "t-crossfilter", "kind": "task", "title": "Cross-view focus links", "capability": "c-dual-views", "service": "svc-dual-views", "status": "in_progress", "size": 2, "url": "https://github.com/example/launchpad/issues/52" },
+    { "key": "t-gh-adapter", "kind": "task", "title": "GitHub sub-issue adapter", "capability": "c-dual-views", "service": "svc-ci", "status": "in_progress", "size": 2, "url": "https://github.com/example/launchpad/issues/53" },
+
+    { "key": "t-count-rollup", "kind": "task", "title": "Unweighted done-leaf roll-ups", "capability": "c-honest-rollups", "service": "svc-dual-views", "status": "done", "size": 1, "url": "https://github.com/example/launchpad/issues/60" },
+    { "key": "t-ci-refresh", "kind": "task", "title": "Regenerate views on issue close / PR merge", "capability": "c-honest-rollups", "service": "svc-ci", "status": "todo", "size": 2, "url": "https://github.com/example/launchpad/issues/61" },
+
+    { "key": "t-many-tomany", "kind": "task", "title": "Many-to-many capability↔service mapping", "capability": "c-multi-view", "service": "svc-dual-views", "status": "done", "size": 2, "url": "https://github.com/example/launchpad/issues/70" },
+    { "key": "t-projection-keys", "kind": "task", "title": "Shared key space across views", "capability": "c-multi-view", "service": "svc-dual-views", "status": "done", "size": 1, "url": "https://github.com/example/launchpad/issues/71" },
+    { "key": "t-third-view", "kind": "task", "title": "Third projection: coverage lens", "capability": "c-multi-view", "service": "svc-ci", "status": "blocked", "size": 3, "url": "https://github.com/example/launchpad/issues/72" },
+
+    { "key": "t-pod-embeds", "kind": "task", "title": "Recursive pod embeds", "capability": "c-fractal-recursion", "service": "svc-fractal-index", "status": "done", "size": 3, "url": "https://github.com/example/launchpad/issues/80" },
+    { "key": "t-linkclick-hook", "kind": "task", "title": "onLinkClickHook zoom-into-pod", "capability": "c-fractal-recursion", "service": "svc-fractal-index", "status": "todo", "size": 2, "url": "https://github.com/example/launchpad/issues/81" },
+
+    { "key": "t-agents-md", "kind": "task", "title": "AGENTS.md conventions", "capability": "c-alignment", "service": "svc-ci", "status": "done", "size": 1, "url": "https://github.com/example/launchpad/issues/90" },
+    { "key": "t-branch-protection", "kind": "task", "title": "Branch protection + required checks", "capability": "c-agent-tasks", "service": "svc-ci", "status": "in_progress", "size": 2, "url": "https://github.com/example/launchpad/issues/91" }
+  ]
+}

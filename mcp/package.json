@@ -1,0 +1,10 @@
+{
+  "name": "obsidbrain-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing the Obsidian fractal brain: generate, sync, read, dive, query links, regenerate work views.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "obsidbrain-mcp": "./server.mjs" },
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node run-tests.mjs" }
+}

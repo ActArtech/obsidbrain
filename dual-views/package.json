@@ -1,0 +1,34 @@
+{
+  "name": "dual-views",
+  "version": "1.2.0",
+  "description": "One work-item hierarchy, three projections: Plotly treemap, Excalidraw story map, and fractal Obsidian work-map drill-downs. CI-friendly, position-stable, honest roll-ups.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "dual-views": "./cli.mjs"
+  },
+  "scripts": {
+    "test": "node test/run-tests.mjs",
+    "demo": "node cli.mjs --source sample/workitems.json --out test/out --title Launchpad"
+  },
+  "files": [
+    "cli.mjs",
+    "lib/",
+    "sample/",
+    "github-workflow/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "obsidian",
+    "excalidraw",
+    "jtbd",
+    "story-map",
+    "treemap",
+    "outcome-driven-development"
+  ]
+}

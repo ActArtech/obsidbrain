@@ -1,0 +1,26 @@
+{
+  "name": "Research Brain",
+  "root": "Research",
+  "files": {
+    "README.md": "# Research Brain\n\nA 3-level Zettelkasten-style demo with deliberate link topology.\n\nEntry points: [[Research/Fields/Physics|Physics]], [[Research/Fields/Neuroscience|Neuroscience]], and [[Research/Methods/Statistical Methods|Statistical Methods]].\n",
+    "Fields/Physics.md": "# Physics\n\nEntropy and energy landscapes. Increasingly relevant to [[Complexity Science]].\n",
+    "Fields/Neuroscience.md": "# Neuroscience\n\nCortical dynamics. Deep overlap with [[Complexity Science]] on emergence.\n",
+    "Fields/Complexity Science.md": "# Complexity Science\n\nEmergent order. Mutual interest with [[Neuroscience]]; grounded in [[Physics]].\n",
+    "Fields/Topics/Neural Networks.md": "# Neural Networks\n\nRepresentation learning. See also [[Emergence]] and [[Research/Methods/Computational Modeling|Computational Modeling]].\n",
+    "Fields/Topics/Emergence.md": "# Emergence\n\nWeak vs strong emergence. Argued via [[Neuroscience]] and [[Complexity Science]].\n",
+    "Fields/Topics/Scale-Free Networks.md": "# Scale-Free Networks\n\nHub-dominated topology. Contrast with lattice structure in [[Neural Networks]].\n",
+    "Methods/Statistical Methods.md": "# Statistical Methods\n\nBayesian workflow, model checking.\n",
+    "Methods/Computational Modeling.md": "# Computational Modeling\n\nSimulation as theory. Feeds [[Research/Fields/Topics/Neural Networks|Neural Networks]] work.\n",
+    "Inbox/Reading List.md": "# Reading List\n\n- [[Research/Fields/Topics/Emergence|Emergence]] (high priority)\n- [[Research/Fields/Topics/Neural Networks|Neural Networks]]\n- [[Research/Methods/Statistical Methods|Statistical Methods]]\n- [[Research/Fields/Physics|Physics]] (skim)\n",
+    "Inbox/Question - consciousness.md": "# Open Question: consciousness\n\nNot linked anywhere yet - on purpose: every brain has orphans.\n",
+    "attachments/sketch-emergence.md": "# Sketch: emergence\n\nPlaceholder for a sketchnote image attachment.\n"
+  },
+  "indexes": [
+    "",
+    "Fields",
+    "Fields/Topics",
+    "Methods",
+    "Inbox",
+    "attachments"
+  ]
+}

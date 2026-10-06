@@ -1,0 +1,78 @@
+{
+  "items": [
+    {
+      "key": "o-acquire",
+      "kind": "outcome",
+      "title": "Acquire — visitors find and start",
+      "flowOrder": 1,
+      "url": "https://github.com/example/saas/issues/101"
+    },
+    {
+      "key": "o-activate",
+      "kind": "outcome",
+      "title": "Activate — reach first real value in 10 minutes",
+      "flowOrder": 2,
+      "url": "https://github.com/example/saas/issues/102"
+    },
+    {
+      "key": "o-retain",
+      "kind": "outcome",
+      "title": "Retain — the product becomes a weekly habit",
+      "flowOrder": 3,
+      "url": "https://github.com/example/saas/issues/103"
+    },
+    {
+      "key": "o-expand",
+      "kind": "outcome",
+      "title": "Expand — teams grow from one seat to many",
+      "flowOrder": 4,
+      "url": "https://github.com/example/saas/issues/104"
+    },
+
+    { "key": "c-seo-landing", "kind": "capability", "title": "Searchable landing pages", "parent": "o-acquire", "url": "https://github.com/example/saas/issues/111" },
+    { "key": "c-signup-friction", "kind": "capability", "title": "Frictionless sign-up", "parent": "o-acquire", "url": "https://github.com/example/saas/issues/112" },
+
+    { "key": "c-onboarding", "kind": "capability", "title": "Guided first-project flow", "parent": "o-activate", "url": "https://github.com/example/saas/issues/121" },
+    { "key": "c-templates", "kind": "capability", "title": "Starter templates", "parent": "o-activate", "url": "https://github.com/example/saas/issues/122" },
+    { "key": "c-sample-data", "kind": "capability", "title": "One-click sample data", "parent": "o-activate", "url": "https://github.com/example/saas/issues/123" },
+
+    { "key": "c-collab", "kind": "capability", "title": "Real-time collaboration", "parent": "o-retain", "url": "https://github.com/example/saas/issues/131" },
+    { "key": "c-notifications", "kind": "capability", "title": "Useful, calm notifications", "parent": "o-retain", "url": "https://github.com/example/saas/issues/132" },
+    { "key": "c-mobile", "kind": "capability", "title": "Mobile companion", "parent": "o-retain", "url": "https://github.com/example/saas/issues/133" },
+
+    { "key": "c-team-seats", "kind": "capability", "title": "Seat & role management", "parent": "o-expand", "url": "https://github.com/example/saas/issues/141" },
+    { "key": "c-integrations", "kind": "capability", "title": "Integration marketplace", "parent": "o-expand", "url": "https://github.com/example/saas/issues/142" },
+
+    { "key": "svc-web", "kind": "service", "title": "web-app (React)" },
+    { "key": "svc-api", "kind": "service", "title": "api (Node)" },
+    { "key": "svc-identity", "kind": "service", "title": "identity-svc" },
+    { "key": "svc-billing", "kind": "service", "title": "billing-svc" },
+    { "key": "svc-notify", "kind": "service", "title": "notify-svc" },
+    { "key": "svc-search", "kind": "service", "title": "search-svc" },
+
+    { "key": "t-landing-ssr", "kind": "task", "title": "SSR landing pages with A/B slots", "capability": "c-seo-landing", "service": "svc-web", "status": "done", "size": 5, "url": "https://github.com/example/saas/issues/151" },
+    { "key": "t-structured-data", "kind": "task", "title": "Structured data + sitemap", "capability": "c-seo-landing", "service": "svc-web", "status": "done", "size": 2, "url": "https://github.com/example/saas/issues/152" },
+    { "key": "t-oauth", "kind": "task", "title": "OAuth (Google, GitHub, Microsoft)", "capability": "c-signup-friction", "service": "svc-identity", "status": "done", "size": 5, "url": "https://github.com/example/saas/issues/153" },
+    { "key": "t-magic-link", "kind": "task", "title": "Passwordless magic links", "capability": "c-signup-friction", "service": "svc-identity", "status": "in_progress", "size": 3, "url": "https://github.com/example/saas/issues/154" },
+
+    { "key": "t-wizard", "kind": "task", "title": "3-step first-project wizard", "capability": "c-onboarding", "service": "svc-web", "status": "done", "size": 5, "url": "https://github.com/example/saas/issues/161" },
+    { "key": "t-checklist-api", "kind": "task", "title": "Onboarding-state API", "capability": "c-onboarding", "service": "svc-api", "status": "done", "size": 3, "url": "https://github.com/example/saas/issues/162" },
+    { "key": "t-template-gallery", "kind": "task", "title": "Template gallery + preview", "capability": "c-templates", "service": "svc-web", "status": "in_progress", "size": 5, "url": "https://github.com/example/saas/issues/163" },
+    { "key": "t-template-engine", "kind": "task", "title": "Template instantiation engine", "capability": "c-templates", "service": "svc-api", "status": "in_progress", "size": 3, "url": "https://github.com/example/saas/issues/164" },
+    { "key": "t-sample-generator", "kind": "task", "title": "Realistic sample-data generator", "capability": "c-sample-data", "service": "svc-api", "status": "todo", "size": 3, "url": "https://github.com/example/saas/issues/165" },
+
+    { "key": "t-crdt", "kind": "task", "title": "CRDT document sync", "capability": "c-collab", "service": "svc-api", "status": "in_progress", "size": 8, "url": "https://github.com/example/saas/issues/171" },
+    { "key": "t-presence", "kind": "task", "title": "Live cursors & presence", "capability": "c-collab", "service": "svc-web", "status": "todo", "size": 5, "url": "https://github.com/example/saas/issues/172" },
+    { "key": "t-digest-emails", "kind": "task", "title": "Weekly digest emails", "capability": "c-notifications", "service": "svc-notify", "status": "done", "size": 3, "url": "https://github.com/example/saas/issues/173" },
+    { "key": "t-digest-prefs", "kind": "task", "title": "Per-user notification preferences", "capability": "c-notifications", "service": "svc-web", "status": "in_progress", "size": 2, "url": "https://github.com/example/saas/issues/174" },
+    { "key": "t-push", "kind": "task", "title": "Push notifications (iOS/Android)", "capability": "c-notifications", "service": "svc-notify", "status": "blocked", "size": 5, "url": "https://github.com/example/saas/issues/175" },
+    { "key": "t-mobile-shell", "kind": "task", "title": "Mobile app shell + auth", "capability": "c-mobile", "service": "svc-web", "status": "todo", "size": 5, "url": "https://github.com/example/saas/issues/176" },
+    { "key": "t-mobile-offline", "kind": "task", "title": "Offline read-only mode", "capability": "c-mobile", "service": "svc-web", "status": "todo", "size": 8, "url": "https://github.com/example/saas/issues/177" },
+
+    { "key": "t-roles", "kind": "task", "title": "Roles & permissions matrix", "capability": "c-team-seats", "service": "svc-identity", "status": "done", "size": 5, "url": "https://github.com/example/saas/issues/181" },
+    { "key": "t-seat-billing", "kind": "task", "title": "Seat-based billing sync", "capability": "c-team-seats", "service": "svc-billing", "status": "in_progress", "size": 5, "url": "https://github.com/example/saas/issues/182" },
+    { "key": "t-marketplace-listing", "kind": "task", "title": "Integration directory & listings", "capability": "c-integrations", "service": "svc-web", "status": "todo", "size": 3, "url": "https://github.com/example/saas/issues/183" },
+    { "key": "t-webhooks", "kind": "task", "title": "Outbound webhooks framework", "capability": "c-integrations", "service": "svc-api", "status": "todo", "size": 5, "url": "https://github.com/example/saas/issues/184" },
+    { "key": "t-slack-app", "kind": "task", "title": "Slack integration (launch partner)", "capability": "c-integrations", "service": "svc-api", "status": "blocked", "size": 5, "url": "https://github.com/example/saas/issues/185" }
+  ]
+}
