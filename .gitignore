@@ -1,0 +1,7 @@
+test/out/
+test/out-gh/
+test/out-samples/
+test/out-wm-det/
+test/out-wm-dbg/
+test/tmp-vault/
+test/tmp-examples/
