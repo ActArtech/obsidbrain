@@ -1,0 +1,20 @@
+{
+  "name": "Project Hub",
+  "root": "Projects",
+  "files": {
+    "Roadmap.md": "# Roadmap\n\nActive work: [[Projects/Website Redesign/Brief|Website Brief]], [[Projects/Mobile App/PRD|Mobile PRD]]. Shared foundation: [[Projects/Shared/Component Library|Component Library]].\n",
+    "Website Redesign/Brief.md": "# Website Redesign — Brief\n\nScope and success metrics. Visual language lives in the [[Design System]]. Reuses [[Projects/Shared/Component Library|Component Library]].\n",
+    "Website Redesign/Design System.md": "# Design System\n\nTokens, typography, components. Companion to the [[Brief]].\n",
+    "Website Redesign/Analytics Plan.md": "# Analytics Plan\n\nEvent taxonomy for the redesign. Feeds the [[Roadmap]] review.\n",
+    "Mobile App/PRD.md": "# Mobile App — PRD\n\nCompanion app. Built on [[Projects/Shared/Component Library|Component Library]].\n",
+    "Mobile App/API Contract.md": "# API Contract\n\nEndpoints shared with web. Errors follow [[Projects/Website Redesign/Design System|Design System]] copy rules.\n",
+    "Shared/Component Library.md": "# Component Library\n\nCross-project UI kit. Referenced by Website Redesign and Mobile App.\n",
+    "Shared/Brand Assets.md": "# Brand Assets\n\nLogos, palette, voice.\n"
+  },
+  "indexes": [
+    "",
+    "Website Redesign",
+    "Mobile App",
+    "Shared"
+  ]
+}

@@ -44,11 +44,6 @@ const TEMPLATE = [
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 try {
-  if (globalThis.__fractalSyncRunning) {
-    new Notice("Fractal Sync: a sync is already running — wait for it to finish.");
-    return;
-  }
-  globalThis.__fractalSyncRunning = true;
   const view = ea.targetView;
   if (!view || !view.file) {
     new Notice("Fractal Sync: open a drawing at the brain root first (e.g. Garden/_index).");
@@ -115,17 +110,12 @@ try {
           }
 
           try {
-            // direct execution: scriptEngine.executeScript's legacy save
-            // preflight can hang forever on generated drawings (pitfall 16),
-            // so compile and run the body on the global EA ourselves
+            // a hard cap so one slow level can never wedge the whole sync
             let timeoutId;
-            const body = source.replace(/^---\n[\s\S]*?\n---\n/, "");
-            const fn = new (async () => {}).constructor("ea", "utils", body);
-            const levelEA = ea.plugin && ea.plugin.ea ? ea.plugin.ea : null;
-            if (!levelEA) throw new Error("global EA unavailable (ea.plugin.ea)");
-            levelEA.setView(leaf.view, false);
             const withTimeout = Promise.race([
-              fn(levelEA, { suggester: async () => undefined, scriptFile: indexFile }),
+              ea.plugin.scriptEngine.executeScript(
+                leaf.view, source, "Fractal Index", leaf.view.file, "manual"
+              ),
               new Promise((_, rej) => { timeoutId = setTimeout(() => rej(new Error("timeout 90s")), 90000); }),
             ]);
             try { await withTimeout; } finally { clearTimeout(timeoutId); }
@@ -146,7 +136,6 @@ try {
           }
         }
 
-        globalThis.__fractalSyncRunning = false;
         globalThis.__fractalSyncOptions = null;
         new Notice(
           `Fractal Sync: ${done.length} maps updated` +
@@ -157,7 +146,6 @@ try {
     }
   }
 } catch (err) {
-  globalThis.__fractalSyncRunning = false;
   globalThis.__fractalSyncOptions = null;
   if (typeof Notice !== "undefined") new Notice("Fractal Sync error: " + (err && err.message ? err.message : err));
   console.error("Fractal Sync error:", err);

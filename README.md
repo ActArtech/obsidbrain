@@ -46,6 +46,12 @@ node examples/install-demo.mjs knowledge-garden "<path-to-your-vault>"
 
 That installs a 51-note showcase brain with deliberate link topology — the READMEs *predict* which arrows you'll see, so you can verify everything works.
 
+## Rebuild maps without opening Obsidian
+
+```bash
+node scripts/build-index.mjs "<path-to-vault>"   # regenerates every _index map on disk
+```
+
 ## The 5-minute start
 
 1. In any folder, create an Excalidraw drawing named `_index`
@@ -57,7 +63,7 @@ That installs a 51-note showcase brain with deliberate link topology — the REA
 
 ### Positions you can trust
 
-Every node's position comes from a persistent slot identity. Regeneration **adopts** your manual arrangement instead of snapping back to a grid. Renamed folders keep their positions. New files append; deleted files vanish. Locked in by [46 test checks](dual-views/) covering rename/move/delete/add/reorder churn.
+Every node's position comes from a persistent slot identity. Regeneration **adopts** your manual arrangement instead of snapping back to a grid. Renamed folders keep their positions. New files append; deleted files vanish. The [Fractal Index tests](fractal-index/test/run-tests.mjs) cover rename, move, delete, add, and reorder churn.
 
 ### Relationship-aware curved arrows
 
@@ -91,6 +97,7 @@ node dual-views/cli.mjs --source gh:owner/repo --out views
 - [The workflow](docs/WORKFLOW.md) — the daily/weekly operating loop
 - [Use-case recipes](docs/USE-CASES.md) — 5 personas with folder shapes and link etiquette
 - [Gallery](docs/GALLERY.md) — rendered maps with captions
+- [Review and fixes](docs/REVIEW-AND-FIXES-2026-10-07.md) — changes, verification, and upstream PR handoff
 - [Examples](examples/README.md) — three installable brains, small → showcase scale
 
 ## Requirements
@@ -100,7 +107,7 @@ node dual-views/cli.mjs --source gh:owner/repo --out views
 
 ## Status & roadmap
 
-Tested: **104 automated checks** across three suites. Live-verified on Obsidian 1.14.4 + Excalidraw 2.28.1.
+Automated suites define **104 checks** across Fractal Index (54), dual-views (46), and MCP (4). The original scripts were live-verified on Obsidian 1.14.4 + Excalidraw 2.28.1; see the [latest verification report](docs/REVIEW-AND-FIXES-2026-10-07.md) for the current changes.
 
 Roadmap: ELK-layered first-run layout (code in place; activates when the CDN is reachable from Obsidian's renderer), coverage/age lens for dual-views.
 

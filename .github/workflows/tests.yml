@@ -7,6 +7,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  fractal-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check installable scripts match tested scripts
+        run: |
+          cmp "scripts/Fractal Index.md" "fractal-index/ea-scripts/Fractal Index.md"
+          cmp "scripts/Fractal Sync.md" "fractal-index/ea-scripts/Fractal Sync.md"
+          cmp "scripts/Fractal Navigate.md" "fractal-index/ea-scripts/Fractal Navigate.md"
+      - name: Fractal Index test suite
+        run: node fractal-index/test/run-tests.mjs
+
   dual-views:
     runs-on: ubuntu-latest
     steps:

@@ -21,7 +21,7 @@ Start-Process "$env:LOCALAPPDATA\Obsidian\Obsidian.exe" -ArgumentList '--remote-
   "mcpServers": {
     "obsidbrain": {
       "command": "node",
-      "args": ["D:/work/launchpad/pads/obsidbrain/mcp/server.mjs"],
+      "args": ["<path-to-obsidbrain>/mcp/server.mjs"],
       "env": { "OBSIDIAN_CDP_PORT": "9333" }
     }
   }

@@ -1,0 +1,54 @@
+# Copy to your repository as .github/workflows/regenerate-views.yml
+#
+# Regenerates both projections whenever an issue changes state or a PR merges,
+# then commits the updated views. Progress stays real: it is recomputed from
+# issue close state on every run.
+#
+# Required: repo secret nothing special — GITHUB_TOKEN is enough for reading
+# issues and pushing to the same repo. Protect your default branch with a
+# bypass for this workflow, or push to a dedicated `views` branch.
+
+name: regenerate-views
+
+on:
+  issues:
+    types: [opened, closed, reopened, edited, labeled, unlabeled]
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate dual views
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node dual-views/cli.mjs \
+            --source gh:${{ github.repository }} \
+            --out views \
+            --limit 200 \
+            --title "${{ github.event.repository.name }}"
+
+      - name: Commit updated views
+        run: |
+          git config user.name  "views-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add views
+          if git diff --cached --quiet; then
+            echo "no view changes"
+          else
+            git commit -m "chore(views): regenerate dual projections [skip ci]"
+            git push
+          fi

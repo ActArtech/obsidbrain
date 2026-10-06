@@ -2,7 +2,7 @@
 
 *A complete system for seeing, walking, and trusting your knowledge — built entirely on the Obsidian Excalidraw plugin's own extension points.*
 
-**Status: 96 automated test checks green · live-verified in Obsidian 1.14.4 + Excalidraw plugin 2.28.1 · MIT licensed · three scripts installed in two vaults · 25 generated maps**
+**Status: 104 automated test checks across Fractal Index, dual-views, and MCP · live-verified in Obsidian 1.14.4 + Excalidraw plugin 2.28.1 · MIT licensed · three scripts installed in two vaults · 25 generated maps**
 
 ---
 
@@ -23,7 +23,7 @@ We turned Obsidian folders into **stable, zoomable, infinitely-nestable visual m
 | **Docs** | Guide, workflow, use-case recipes, rendered gallery | [`fractal-index/docs/`](fractal-index/docs/GUIDE.md) | — |
 | **dual-views** (v1.2.0) | Node CLI: one work-item model → treemap.html + story-map.excalidraw.md + workmap/ drill-downs; GitHub adapter; CI workflow | [`dual-views/`](dual-views/README.md) | 46 checks |
 | **Contribution kit** | Ready-to-submit Script Store PR (script + icon + PR text + checklist) | [`fractal-index/contribution/SCRIPT-STORE-PR.md`](fractal-index/contribution/SCRIPT-STORE-PR.md) | — |
-| **Dev tooling** | Zero-dependency CDP driver for live verification, with its pitfall manual | [`dev-tools/README.md`](dev-tools/README.md) | — |
+| **Verification notes** | CDP pitfalls and the live verification method | [`dev-tools/README.md`](dev-tools/README.md) | — |
 | **obsidbrain-mcp** (v0.1.0) | MCP server exposing the brain to agents: status, list/read/query, generate, sync, dive, work views | [`mcp/README.md`](mcp/README.md) | 4 checks |
 
 ---
@@ -108,7 +108,7 @@ Outputs: `views/treemap.html` (search + `?focus=`), `views/story-map.excalidraw.
 
 ## 7. Sharing & what's next
 
-**Ready to share**: the Script Store PR kit is complete (script + icon + PR text + checklist) — the one remaining pre-submit item is a 20-second demo GIF, best recorded while Sync-ing and diving through the Knowledge Garden. dual-views is npm-shaped and repo-ready.
+**Upstream review**: four stacked draft PRs ([#2972](https://github.com/zsviczian/obsidian-excalidraw-plugin/pull/2972) through [#2975](https://github.com/zsviczian/obsidian-excalidraw-plugin/pull/2975)) cover the Fractal Index core, navigation, wikilink arrows, and relationship styling. The [contribution kit](fractal-index/contribution/SCRIPT-STORE-PR.md) tracks the series. A short demo GIF would help reviewers. dual-views is npm-shaped and repo-ready.
 
 **Roadmap, in value order**:
 1. ~~obsidbrain-mcp~~ **BUILT (v0.1.0)** — 8 tools over the CDP bridge, offline-tested + live-smoked; see [mcp/README.md](mcp/README.md).
