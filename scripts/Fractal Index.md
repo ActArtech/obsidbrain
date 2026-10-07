@@ -449,15 +449,24 @@ try {
 
         let embId = null, hintId = null;
         if (idx) {
-          embId = ea.addEmbeddable(
+          // pod preview = image element transcluding the sub-index drawing.
+          // (addEmbeddable is for web/pdf/md embeds; for .excalidraw.md it
+          // mounts a nested view in a detached container that never loads —
+          // the white-box bug. Images rasterize the child scene instead.)
+          embId = await ea.addImage(
             x + CFG.embed.marginX,
             y + CFG.embed.topOffset,
-            CFG.pod.w - 2 * CFG.embed.marginX,
-            CFG.pod.h - CFG.embed.topOffset - CFG.embed.bottomMargin,
-            null,
             idx
           );
-          stamp(embId, key + "|embed", sf.name, "embed", slot);
+          if (embId) {
+            const emb = ea.getElement(embId);
+            emb.x = x + CFG.embed.marginX;
+            emb.y = y + CFG.embed.topOffset;
+            emb.width = CFG.pod.w - 2 * CFG.embed.marginX;
+            emb.height = CFG.pod.h - CFG.embed.topOffset - CFG.embed.bottomMargin;
+            emb.link = wl(idx.path);
+            stamp(embId, key + "|embed", sf.name, "embed", slot);
+          }
         } else {
           ea.setStyle({ fontFamily: 2, fontSize: 16, strokeColor: CFG.colors.muted });
           hintId = sid(key + "|hint");
