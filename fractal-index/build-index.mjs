@@ -72,6 +72,7 @@ function resolveLink(srcRel, raw) {
   return hits && hits.length ? hits[0] : null;
 }
 for (const f of mdFiles) {
+  if (f.rel.includes("/_connections/")) continue; // connection notes describe edges, not nodes
   const content = fs.readFileSync(f.abs, "utf8");
   const resolved = {};
   for (const m of content.matchAll(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g)) {
@@ -183,7 +184,7 @@ function buildFolderIndex(folderRel) {
   const abs = path.join(vault, folderRel);
   const prefix = folderRel ? folderRel + "/" : "";
   const children = fs.existsSync(abs)
-    ? fs.readdirSync(abs, { withFileTypes: true }).filter((e) => !e.name.startsWith("."))
+    ? fs.readdirSync(abs, { withFileTypes: true }).filter((e) => !e.name.startsWith(".") && !e.name.startsWith("_"))
     : [];
   const subfolders = children.filter((e) => e.isDirectory()).map((e) => e.name).sort();
   const files = children.filter((e) => e.isFile() && e.name !== CFG.indexName).map((e) => e.name).sort();
@@ -301,6 +302,51 @@ function buildFolderIndex(folderRel) {
   }
   const edges = buildEdges(prefix, filesCapped.map((f) => f), podKeys);
   const drawn = mergeMutual(edges);
+
+  /* ── connection notes: the in-between system ──
+     Each drawn edge gets a first-class md note in <folder>/_connections/:
+     frontmatter (from/to/relation/weight) + an editable explanation body.
+     The map arrow links to its note; ExcaliBrain sees the note as a real
+     node between the two (A→M→B chain), because it carries the links. */
+  const connDirRel = (folderRel ? folderRel + "/" : "") + "_connections";
+  const connDirAbs = path.join(vault, connDirRel);
+  fs.mkdirSync(connDirAbs, { recursive: true });
+  const safeName = (s) => s.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
+  const wl = (p) => "[[" + String(p).replace(/([\[\]|])/g, "\\$1") + "]]";
+  for (const e of drawn.slice(0, 30)) {
+    const rel = classifyRel(e.a, e.b, e.mutual);
+    const connRel = connDirRel + "/" + safeName(e.a) + "--" + safeName(e.b) + ".md";
+    const connAbs = path.join(vault, connRel);
+    if (!fs.existsSync(connAbs)) {
+      const fm = [
+        "---",
+        "type: connection",
+        `from: "${wl(e.a)}"`,
+        `to: "${wl(e.b)}"`,
+        `relation: ${rel}`,
+        `mutual: ${e.mutual}`,
+        `weight: ${e.weight}`,
+        `brain: "${folderRel || "(root)"}"`,
+        "---",
+        "",
+        `# ${path.basename(e.a)} ${e.mutual ? "⇄" : "→"} ${path.basename(e.b)}`,
+        "",
+        `**Relationship:** ${rel}`,
+        "",
+        "## Why these are connected",
+        "",
+        "<!-- write the explanation here: why does this relationship exist? -->",
+        "",
+        "## Evidence",
+        "",
+        "<!-- links, quotes, meetings that support this connection -->",
+        "",
+      ].join("\n");
+      fs.writeFileSync(connAbs, fm, "utf8");
+    }
+    e.connRel = connRel;
+  }
+
   const anchor = (r, toward) => {
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
     const dx = toward.x + toward.w / 2 - cx, dy = toward.y + toward.h / 2 - cy;
@@ -333,6 +379,7 @@ function buildFolderIndex(folderRel) {
       points: [[0, 0], [p2[0] - p1[0], p2[1] - p1[1]]],
       color: style.color, strokeWidth: style.w, dash: style.dash, op: style.op,
       round: { type: 1 }, startArrowhead: e.mutual ? "arrow" : null, endArrowhead: "arrow",
+      link: e.connRel ? wl(e.connRel) : null,
       customData: { fractalIndex: true, key, basename: path.basename(e.a), kind: "link", slot: 0, rel },
     }));
   }

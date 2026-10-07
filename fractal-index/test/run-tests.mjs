@@ -803,6 +803,66 @@ check("T20b SVG preview uses only whitelisted tags", () => {
   });
 }
 
+/* === T34 connection notes: the in-between system === */
+{
+  await checkAsync("T34 connection notes: generated, linked from arrows, idempotent", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const tmpVault = path.join(HERE, "tmp-conn");
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+    execFileSync("node", [path.join(HERE, "..", "examples", "install-demo.mjs"), "research-brain", tmpVault], { stdio: "ignore" });
+    execFileSync("node", [path.join(HERE, "..", "build-index.mjs"), tmpVault], { stdio: "pipe" });
+
+    // 1. connection notes exist for drawn arrows
+    const connDirs = [];
+    for (const d of fs.readdirSync(tmpVault, { withFileTypes: true })) {
+      if (!d.isDirectory()) continue;
+      const cd = path.join(tmpVault, d.name, "_connections");
+      if (fs.existsSync(cd)) connDirs.push(cd);
+    }
+    assert.ok(connDirs.length >= 1, "no _connections folder found");
+    let noteCount = 0;
+    let arrowLinks = 0;
+    let arrowLinkTargets = [];
+    for (const cd of connDirs) {
+      for (const f of fs.readdirSync(cd)) {
+        if (!f.endsWith(".md")) continue;
+        noteCount++;
+        const fm = fs.readFileSync(path.join(cd, f), "utf8").split("---")[1];
+        assert.match(fm, /from: "\[\[/, "missing from field in " + f);
+        assert.match(fm, /to: "\[\[/, "missing to field in " + f);
+        assert.match(fm, /relation: (resonates|peer|bridges|nourishes|feeds)/, "missing relation in " + f);
+      }
+    }
+    assert.ok(noteCount >= 2, "too few connection notes: " + noteCount); // research-brain has 4 inferred edges across 2 folders
+
+    // 2. arrows in the maps link to their connection notes
+    for (const f of fs.readdirSync(tmpVault, { recursive: true })) {
+      if (!String(f).endsWith("_index.excalidraw.md")) continue;
+      const md = fs.readFileSync(path.join(tmpVault, String(f)), "utf8");
+      const jsonBlock = new RegExp("```json\\n([\\s\\S]*?)\\n```");
+      const scene = JSON.parse(md.match(jsonBlock)[1]);
+      for (const el of scene.elements) {
+        if (el.customData?.kind === "link" && el.link) {
+          arrowLinks++;
+          const tName = el.link.match(/\[\[([^\]|]+)/)[1];
+          const target = tName.endsWith(".md") ? tName : tName + ".md";
+          const targetPath = path.join(tmpVault, target);
+          assert.ok(fs.existsSync(targetPath), "arrow link target missing: " + target);
+          arrowLinkTargets.push(target);
+        }
+      }
+    }
+    assert.ok(arrowLinks >= 2, "expected arrows with connection-note links, got " + arrowLinks);
+
+    // 3. idempotent: edit a note body, rebuild, body must survive
+    const firstConn = path.join(connDirs[0], fs.readdirSync(connDirs[0])[0]);
+    fs.writeFileSync(firstConn, fs.readFileSync(firstConn, "utf8").replace("<!-- write the explanation here: why does this relationship exist? -->", "MY EXPLANATION"), "utf8");
+    execFileSync("node", [path.join(HERE, "..", "build-index.mjs"), tmpVault], { stdio: "pipe" });
+    assert.match(fs.readFileSync(firstConn, "utf8"), /MY EXPLANATION/, "user edit was overwritten");
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+  });
+}
+
 /* ────────────────────────────── report ────────────────────────────────── */
 /* === T28 Fractal Sync: one command regenerates the whole brain === */
 {

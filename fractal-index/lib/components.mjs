@@ -79,6 +79,7 @@ export function Pod({ name, childCount, embedPath = null, hint = null, chip = "â
 
   return {
     size: { w, h },
+    name,
     meta: { label: name, embedTarget },
     render(x, y) {
       const els = [];
@@ -144,6 +145,7 @@ export function FileCard({ icon, name, link }) {
   const h = m.h + 20;
   return {
     size: { w, h },
+    name,
     render(x, y) {
       return [
         {
