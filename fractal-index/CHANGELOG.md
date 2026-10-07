@@ -7,7 +7,11 @@
   autoOpenCentralDocument, and Navigate as startup script. Navigate's toggle
   command now registers reliably in the script sandbox (ea.plugin) and shows
   by REMOVING the exclusions field (an `exclusions: false` line can still
-  count as hidden in strict frontmatter checks).
+  count as hidden in strict frontmatter checks). After flipping, dataview is
+  force-reloaded and ExcaliBrain itself is rebuilt (brain view reopened in
+  its own split, old views detached first) — the graph reflects the toggle
+  in seconds; ExcaliBrain caches per-page ontology links, so frontmatter
+  edits alone can leave it stale for minutes.
 
 - FIXED: pod previews render as real mini-maps of the sub-index drawing.
   Pod embeds were `embeddable` elements — the plugin hosts those in a
