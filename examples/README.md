@@ -38,3 +38,54 @@ hides (notifications & integrations in the sample).
 ```bash
 node ../dual-views/cli.mjs --source ../dual-views/sample/saas-platform.json --out views
 ```
+
+## Connection notes: fill in the why
+
+Every arrow gets a first-class md note in that folder's `_connections/`
+(frontmatter: from/to/relation/weight — body: **Why these are connected**
++ **Evidence**). The generated template is the prompt; the value is the
+explanation you write. A filled note looks like this:
+
+```markdown
+## Why these are connected
+
+Two answers to one question: how do simple parts produce structured
+wholes? Networks supplies the static grammar (hubs, percolation, small
+worlds); Emergence supplies the dynamic story (local rules compounding
+into global order). An ant colony is a network that emergences: remove
+the map, the traffic still flows.
+
+## Evidence
+
+[[Linked]] (Barabási) ch. 1–3; percolation chapter of the reading queue.
+```
+
+## Nested systems
+
+Folders aren't just path prefixes — every content folder is a **System
+node** and containment is typed `CONTAINS` edges, so systems nest to any
+depth. `systemStats` rolls up size, density, bridges (what leaves the
+system), and keystone notes; `detectCommunitiesHierarchical` finds
+*emergent* systems-within-systems from the link structure alone, so you
+can compare the structure you built with the structure you use.
+
+Relationships between whole systems work like relationships between
+notes — write a connection note whose `from`/`to` name folders:
+
+```markdown
+---
+type: connection
+from: "[[Garden/Inbox]]"
+to: "[[Garden/Fields]]"
+relation: nourishes
+---
+```
+
+Inspect any brain from the command line:
+
+```bash
+node fractal-index/examples/nested-systems.mjs "<path-to-vault>" Garden
+```
+
+or ask an agent via MCP: the `graph_analysis` tool returns the system
+tree, emergent dendrogram, and bridge report as JSON.

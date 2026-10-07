@@ -16,11 +16,16 @@ export class ObsidianCDP {
     this.wsUrl = null;
   }
 
-  /** fetch the page target and open the WebSocket; throws with guidance when down */
+  /** fetch the page target and open the WebSocket; throws with guidance when down.
+   *  Multiple vault windows share one debug port: pick with OBSIDIAN_WINDOW
+   *  (substring of the window title, e.g. the vault name); default = first page. */
   async connect(timeoutMs = 5000) {
     const list = await this.#fetchJson(`/json/list`, timeoutMs);
-    const page = (Array.isArray(list) ? list : []).find((t) => t.type === "page" && t.webSocketDebuggerUrl);
+    const want = process.env.OBSIDIAN_WINDOW || "";
+    const pages = (Array.isArray(list) ? list : []).filter((t) => t.type === "page" && t.webSocketDebuggerUrl);
+    const page = pages.find((t) => want && (t.title || "").includes(want)) || pages[0];
     if (!page) throw new Error("no debuggable page target in Obsidian");
+    this.windowTitle = page.title || "";
     this.wsUrl = page.webSocketDebuggerUrl;
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("CDP websocket connect timeout")), timeoutMs);
