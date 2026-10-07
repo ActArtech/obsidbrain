@@ -203,10 +203,12 @@ check("T3g new note appended without moving the README card", () => {
   assert.ok(brainEls2.some((el) => el.customData?.key === "file|Brain/Morning Pages.md"));
 });
 
-check("T3h TD file grid starts to the right of pods", () => {
+check("T3h file grid sits below the pod grid at x=40", () => {
   const r = brainEls2.find((el) => el.customData?.key === "file|Brain/README.md");
-  assert.ok(Math.abs(r.x - 480) < 1, "files start at x=480, got " + r.x);
+  assert.ok(Math.abs(r.x - 40) < 1, "files start at x=40, got " + r.x);
+  assert.ok(r.y > 460, "files below the pod grid, got y=" + r.y);
 });
+
 unmountGlobals();
 
 /* ─────────────────────── T4: fractal recursion ────────────────────────── */
@@ -302,9 +304,11 @@ check("T5c SVG preview contains the expected labels", () => {
     assert.ok(a && b && arrow, "geometry missing");
     // start point must be ON A's boundary (within tolerance), not at its center
     const onEdge = (p, r) => Math.abs(p.x - r.x) < 2 || Math.abs(p.x - (r.x + r.w)) < 2 || Math.abs(p.y - r.y) < 2 || Math.abs(p.y - (r.y + r.h)) < 2;
-    assert.ok(onEdge({ x: arrow.points[0][0], y: arrow.points[0][1] }, a), "start not on A boundary");
+    // points are relative to x/y: reconstruct the absolute start
+    const p0 = { x: arrow.points[0][0] + arrow.x, y: arrow.points[0][1] + arrow.y };
+    assert.ok(onEdge(p0, a), "start not on A boundary");
     const cx = a.x + a.w / 2, cy = a.y + a.h / 2;
-    assert.ok(Math.hypot(arrow.points[0][0] - cx, arrow.points[0][1] - cy) > a.w / 4, "start too close to center");
+    assert.ok(Math.hypot(p0.x - cx, p0.y - cy) > a.w / 4, "start too close to center");
   });
   check("T21e purity holds with links enabled (no markup introduced)", () => {
     for (const el of sceneElements(eaL)) {
@@ -449,10 +453,12 @@ check("T5c SVG preview contains the expected labels", () => {
     assert.ok(Math.abs(lp[0][0] - 610) < 1.5, "link start on A right edge (610), got " + lp[0][0]);
     assert.ok(Math.abs(lp[1][0] - 990) < 1.5, "link end on B left edge (990), got " + lp[1][0]);
     const sp = abs(stub);
-    // LR layout: vertical stub at pod centerX, from the horizontal spine to pod top
-    assert.ok(stub && Math.abs(sp[1][1] - 502) < 1.5, "stub drops to pod top (502), got " + (sp && sp[1] && sp[1][1]));
-    assert.ok(Math.abs(sp[1][0] - 194) < 1.5, "stub at pod centerX (194), got " + (sp && sp[1] && sp[1][0]));
-    assert.deepEqual(abs(lastArrow("spine")), [[0, 120], [194, 120]], "LR spine stays horizontal");
+    // LR layout: horizontal stub at pod centerY (656), from the vertical spine at x=-40
+    assert.ok(Math.abs(sp[0][0] + 40) < 1.5, "stub starts at spine x=-40, got " + JSON.stringify(sp));
+    assert.ok(Math.abs(sp[1][0] - 0) < 1.5, "stub ends at pod left edge (0), got " + JSON.stringify(sp));
+    assert.ok(Math.abs(sp[1][1] - 656) < 1.5, "stub at pod centerY (656), got " + sp[1][1]);
+    const spineAbs = abs(lastArrow("spine"));
+    assert.ok(spineAbs.every((q) => Math.abs(q[0] + 40) < 2), "LR spine vertical at x=-40: " + JSON.stringify(spineAbs));
 
     // 2. convergence: fire again with the UPDATED arrows -> no further writes
     const updated = writes[0]; // the scene the tracker itself wrote
@@ -472,12 +478,15 @@ check("T5c SVG preview contains the expected labels", () => {
     const p2 = abs(lnk2)[0]; // A rect = (790, 890, 120, 46)
     const onBoundary = Math.abs(p2[0] - 790) < 1.5 || Math.abs(p2[0] - 910) < 1.5 || Math.abs(p2[1] - 890) < 1.5 || Math.abs(p2[1] - 936) < 1.5;
     assert.ok(onBoundary, "re-anchored onto moved A boundary, got " + JSON.stringify(p2));
+    // switching the title to TD re-anchors structural arrows to TD geometry
     const tdScene = writes[1].map((e) => e.id === "title" ? { ...e, customData: { ...e.customData, direction: "TD" } } : e);
     fire(tdScene);
     await sleep(300);
     assert.equal(writes.length, 3, "switching to TD re-anchors structural arrows");
-    assert.deepEqual(abs(lastArrow("stub")), [[-40, 538], [16, 538]], "TD stub stays horizontal");
-    assert.deepEqual(abs(lastArrow("spine")), [[-40, 40], [-40, 538]], "TD spine stays vertical");
+    const tdStub = abs(lastArrow("stub"));
+    assert.ok(Math.abs(tdStub[0][0] - 194) < 1.5 && Math.abs(tdStub[1][1] - 502) < 1.5, "TD stub vertical at pod centerX, got " + JSON.stringify(tdStub));
+    const tdSpine = abs(lastArrow("spine"));
+    assert.ok(tdSpine.every((q) => Math.abs(q[1] - 120) < 2), "TD spine horizontal at y=120");
   });
 }
 
@@ -516,8 +525,10 @@ check("T5c SVG preview contains the expected labels", () => {
     const arrow = after.find((el) => el.customData?.kind === "link");
     assert.ok(arrow, "link arrow missing");
     const aRect = { x: cardA2.x - 10, y: cardA2.y - 10, w: cardA2.width + 20, h: cardA2.height + 20 };
-    const onA = Math.abs(arrow.points[0][0] - aRect.x) < 2 || Math.abs(arrow.points[0][0] - (aRect.x + aRect.w)) < 2 ||
-                Math.abs(arrow.points[0][1] - aRect.y) < 2 || Math.abs(arrow.points[0][1] - (aRect.y + aRect.h)) < 2;
+    // points are relative to x/y: reconstruct the absolute first endpoint
+    const a0 = [arrow.points[0][0] + arrow.x, arrow.points[0][1] + arrow.y];
+    const onA = Math.abs(a0[0] - aRect.x) < 2 || Math.abs(a0[0] - (aRect.x + aRect.w)) < 2 ||
+                Math.abs(a0[1] - aRect.y) < 2 || Math.abs(a0[1] - (aRect.y + aRect.h)) < 2;
     assert.ok(onA, "arrow endpoint not on moved A boundary");
   });
   check("T26d pods are grouped (move one pod element moves the pod)", () => {
@@ -650,18 +661,23 @@ check("T20b SVG preview uses only whitelisted tags", () => {
   mountGlobals(app31);
   app31.metadataCache.resolvedLinks = {};
 
-  await checkAsync("T31a LR: pods side-by-side, files below", async () => {
+  await checkAsync("T31a LR: balanced column-major grid, vertical spine left", async () => {
     const ea31 = createMockEA();
     await runScript(app31, ea31, "LinksDemo/_index.excalidraw.md", ["self+create", true, "LR"]);
-    const pods = sceneElements(ea31).filter((el) => el.customData?.kind === "pod-label");
-    assert.ok(pods.length >= 2, "need 2+ pods for LR test");
-    const ys = pods.map((p) => p.y);
-    assert.ok(ys.every((y) => y === ys[0]), "LR pods should share y, got: " + JSON.stringify(ys));
-    assert.ok(pods[1].x > pods[0].x, "LR pods should have increasing x");
+    const pods = sceneElements(ea31).filter((el) => el.customData?.kind === "pod-label").sort((a, b) => a.x - b.x || a.y - b.y);
+    assert.ok(pods.length >= 4, "need 4 pods for the LR grid test");
+    // column-major: column 0 (x=0) holds two pods stacked (y=160, 520)
+    const col0 = pods.filter((p) => p.x < 100);
+    const col1 = pods.filter((p) => p.x >= 100 && p.x < 600);
+    assert.ok(col0.length >= 1 && col1.length >= 1, "expected pods in 2+ columns");
+    const spine = sceneElements(ea31).find((el) => el.customData?.kind === "spine");
+    assert.ok(spine, "LR spine missing");
+    // LR spine: vertical at the left (both points x≈-40)
+    const pts = spine.points.map((q) => [Math.round(q[0] + spine.x), Math.round(q[1] + spine.y)]);
+    const vertical = pts.every((q) => Math.abs(q[0] - pts[0][0]) < 2) && pts[0][0] < Math.min(...pods.map((p) => p.x));
+    assert.ok(vertical, "LR spine should be vertical, left of the pods: " + JSON.stringify(pts));
     const files = sceneElements(ea31).filter((el) => el.customData?.kind === "file");
-    if (files.length) {
-      assert.ok(files[0].y > ys[0] + 300, "files should be below pods in LR");
-    }
+    if (files.length) assert.ok(files[0].y > 520, "files below the pod grid in LR");
   });
 
   await checkAsync("T31b direction persists on regeneration (stored in title customData)", async () => {
@@ -673,23 +689,27 @@ check("T20b SVG preview uses only whitelisted tags", () => {
     const title = sceneElements(ea31c).find((el) => el.customData?.kind === "title");
     assert.ok(title, "no title");
     assert.equal(title.customData.direction, "LR", "direction not preserved: " + title.customData.direction);
-    const pods = sceneElements(ea31c).filter((el) => el.customData?.kind === "pod-label");
-    if (pods.length >= 2) {
-      assert.ok(pods.every((p) => p.y === pods[0].y), "regen should keep LR layout");
-    }
   });
 
-  await checkAsync("T31c TD pods stack vertically", async () => {
+  await checkAsync("T31c TD: balanced row-major grid, horizontal spine above", async () => {
     const ea31d = createMockEA();
     await runScript(app31, ea31d, "LinksDemo/_index.excalidraw.md", ["self+create", true, "TD"]);
-    const pods = sceneElements(ea31d).filter((el) => el.customData?.kind === "pod-label").sort((a, b) => a.y - b.y);
+    const pods = sceneElements(ea31d).filter((el) => el.customData?.kind === "pod-label").sort((a, b) => a.y - b.y || a.x - b.x);
     assert.ok(pods.length >= 4, "need 4 pods");
-    assert.ok(pods.every((p) => p.x < 100), "TD pods stay left of file cards");
-    assert.ok(pods.every((p, i) => i === 0 || p.y > pods[i - 1].y), "TD pods stack vertically");
+    // row-major: first two share row y=160 with increasing x
+    assert.equal(pods[0].y, pods[1].y, "row 0 shared y");
+    assert.ok(pods[1].x > pods[0].x, "row 0 increasing x");
+    const spine = sceneElements(ea31d).find((el) => el.customData?.kind === "spine");
+    console.log("[dbg T31c] spine RAW:", JSON.stringify({ x: spine.x, y: spine.y, pts: spine.points }));
+    assert.ok(spine, "TD spine missing");
+    const pts = spine.points.map((q) => [Math.round(q[0] + spine.x), Math.round(q[1] + spine.y)]);
+    const horizontal = pts.every((q) => Math.abs(q[1] - pts[0][1]) < 2) && pts[0][1] < Math.min(...pods.map((p) => p.y));
+    assert.ok(horizontal, "TD spine should be horizontal, above the pods: " + JSON.stringify(pts));
   });
 
   unmountGlobals();
 }
+
 
 /* === T32 relationship-aware curved arrows === */
 {

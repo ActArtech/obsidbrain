@@ -124,10 +124,12 @@ export function createMockEA() {
     },
     addArrow(points, formatting = {}) {
       const el = ea._base("arrow");
-      el.points = points.map(([x, y]) => [x, y]);
-      el.x = points[0][0]; el.y = points[0][1];
-      el.width = Math.abs(points[points.length - 1][0] - points[0][0]);
-      el.height = Math.abs(points[points.length - 1][1] - points[0][1]);
+      // real EA convention: points are RELATIVE to x/y (which sit at the first point)
+      const x0 = points[0][0], y0 = points[0][1];
+      el.x = x0; el.y = y0;
+      el.points = points.map(([x, y]) => [x - x0, y - y0]);
+      el.width = Math.abs(points[points.length - 1][0] - x0);
+      el.height = Math.abs(points[points.length - 1][1] - y0);
       if (formatting.strokeColor) el.strokeColor = formatting.strokeColor;
       if (formatting.strokeStyle) el.strokeStyle = formatting.strokeStyle;
       el.startArrowhead = formatting.startArrowHead || null;

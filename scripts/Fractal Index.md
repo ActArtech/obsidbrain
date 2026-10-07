@@ -49,7 +49,7 @@ const CFG = {
   indexName: "_index.excalidraw.md",
   maxItems: 500,
   maxLinks: 60,
-  layoutVersion: 2, // bump to re-layout existing maps with the new engine
+  layoutVersion: 3, // bump to re-layout existing maps with the new engine (v3: balanced square grid + orientation spines)
   direction: "TD", // "TD" = top-down (hierarchy, default) | "LR" = left-right (journey)
   fileCard: { w: 230, h: 64, cols: 5, gx: 36, gy: 26, fontSize: 20, wrapAt: 26 },
   pod: { w: 380, h: 300, gapY: 60, gapX: 60, fontSize: 26 },
@@ -389,24 +389,34 @@ try {
         ea.getElement(bcId).link = wl(parentIndexPath);
       }
 
-      /* ── layout: branch on direction (TD = hierarchy / LR = journey) ── */
-      const slotPos = direction === "LR"
-        ? {
-            // LR: pods side-by-side, files in a grid below the pod row
-            pod: (s) => ({ x: s * (CFG.pod.w + CFG.pod.gapX), y: CFG.gridY0 }),
-            file: (s) => ({
-              x: (s % CFG.fileCard.cols) * (CFG.fileCard.w + CFG.fileCard.gx),
-              y: CFG.gridY0 + CFG.pod.h + 80 + Math.floor(s / CFG.fileCard.cols) * (CFG.fileCard.h + CFG.fileCard.gy),
+      /* ── layout: balanced square grid in both directions ──
+         Pods pack into a near-square grid (3 pods -> 2x2, 8 -> 3x3): no
+         endless columns, no thin one-line strips. Direction changes the
+         spine side and reading order: TD = rows, spine above; LR = columns,
+         spine on the left. Files sit below the pod area either way. */
+      const podCount = subfoldersCapped.length;
+      const podCols = Math.max(1, Math.min(podCount, Math.ceil(Math.sqrt(podCount))));
+      const podRows = Math.ceil(podCount / podCols);
+      const podsBottom = CFG.gridY0 + podRows * (CFG.pod.h + CFG.pod.gapY) - CFG.pod.gapY;
+      const fileCols = Math.max(CFG.fileCard.cols, podCols);
+      const slotPos = {
+        pod: direction === "LR"
+          ? (s) => {
+              // LR: column-major fill (journey reads down each column)
+              return {
+                x: Math.floor(s / podRows) * (CFG.pod.w + CFG.pod.gapX),
+                y: CFG.gridY0 + (s % podRows) * (CFG.pod.h + CFG.pod.gapY),
+              };
+            }
+          : (s) => ({
+              x: (s % podCols) * (CFG.pod.w + CFG.pod.gapX),
+              y: CFG.gridY0 + Math.floor(s / podCols) * (CFG.pod.h + CFG.pod.gapY),
             }),
-          }
-        : {
-            // TD (default): pods stacked vertically, files in a grid to the right
-            pod: (s) => ({ x: 0, y: CFG.gridY0 + s * (CFG.pod.h + CFG.pod.gapY) }),
-            file: (s) => ({
-              x: CFG.gridX0 + (s % CFG.fileCard.cols) * (CFG.fileCard.w + CFG.fileCard.gx),
-              y: CFG.gridY0 + Math.floor(s / CFG.fileCard.cols) * (CFG.fileCard.h + CFG.fileCard.gy),
-            }),
-          };
+        file: (s) => ({
+          x: 40 + (s % fileCols) * (CFG.fileCard.w + CFG.fileCard.gx),
+          y: podsBottom + 80 + Math.floor(s / fileCols) * (CFG.fileCard.h + CFG.fileCard.gy),
+        }),
+      };
       const podSlots = new Map(); // subfolder path → slot (for arrows)
 
       const podOrigin = new Map(); // final pod origin after move-adoption
@@ -458,7 +468,7 @@ try {
         ea.setStyle({ fontFamily: 2, fontSize: 14, strokeColor: CFG.colors.link });
         const diveId = sid(key + "|dive");
         ea.addText(
-          x + CFG.pod.w - 150, y + CFG.pod.h - 26,
+          x + CFG.pod.w - 150, y - 24,
           "⤢ click pod to dive",
           { textAlign: "right" },
           diveId
@@ -653,53 +663,55 @@ try {
         }
       }
 
-      /* ── org-chart spine + orthogonal (elbowed) stub arrows into each pod ──
-         Elbowed routing is the Mermaid/ELK convention for hierarchy: clean
-         right angles instead of diagonals when a pod has been moved.
-         Direction-aware: TD = vertical spine on the left, stubs go right.
-         LR = horizontal spine above, stubs go down. */
+      /* ── spine + orthogonal stubs, orientation by direction ──
+         TD: horizontal spine above the grid, vertical stubs into first-row pods.
+         LR: vertical spine left of the grid, horizontal stubs into first-column
+         pods (journey reads down each column). */
       ea.setStyle({ strokeColor: CFG.colors.arrow, strokeStyle: "dashed" });
       if (subfoldersCapped.length) {
+        const origins = subfoldersCapped.map((sf) => podOrigin.get(sf.path) || slotPos.pod(podSlots.get(sf.path)));
         if (direction === "LR") {
-          // horizontal spine above the pods, vertical stubs dropping down
+          const spineX = -40;
+          const cys = origins.map((o) => o.y + CFG.pod.h / 2);
+          const lastY = Math.max(...cys);
+          const spineId = ea.addArrow(
+            [[spineX, CFG.gridY0], [spineX, lastY]],
+            { startArrowHead: null, endArrowHead: null, strokeStyle: "dashed", strokeColor: CFG.colors.arrow, elbowed: true }
+          );
+          stamp(spineId, "spine|" + folder.path, folder.name, "spine", 0);
+          subfoldersCapped.forEach((sf, i) => {
+            const key = "pod|" + sf.path;
+            const o = origins[i];
+            const colX = Math.min(...origins.map((o2) => o2.x));
+            if (o.x > colX + 40) return; // later columns: no stub
+            const cy = o.y + CFG.pod.h / 2;
+            const aId = ea.addArrow(
+              [[spineX, cy], [o.x - 4, cy]],
+              { startArrowHead: null, endArrowHead: "arrow", strokeStyle: "dashed", strokeColor: CFG.colors.arrow, elbowed: true }
+            );
+            stamp(aId, key + "|arrow", sf.name, "arrow", i);
+          });
+        } else {
           const spineY = CFG.gridY0 - 40;
-          const xs = subfoldersCapped.map((sf) => (podOrigin.get(sf.path) || slotPos.pod(podSlots.get(sf.path))).x + CFG.pod.w / 2);
-          const lastX = Math.max(...xs);
+          const centers = origins.map((o) => o.x + CFG.pod.w / 2);
+          const lastX = Math.max(...centers);
           const spineId = ea.addArrow(
             [[0, spineY], [lastX, spineY]],
             { startArrowHead: null, endArrowHead: null, strokeStyle: "dashed", strokeColor: CFG.colors.arrow, elbowed: true }
           );
           stamp(spineId, "spine|" + folder.path, folder.name, "spine", 0);
-          for (const sf of subfoldersCapped) {
+          subfoldersCapped.forEach((sf, i) => {
             const key = "pod|" + sf.path;
-            const slot = podSlots.get(sf.path);
-            const origin = podOrigin.get(sf.path) || slotPos.pod(slot);
+            const o = origins[i];
+            const rowY = Math.min(...origins.map((o2) => o2.y));
+            if (o.y > rowY + 40) return; // later rows: no stub
+            const cx = o.x + CFG.pod.w / 2;
             const aId = ea.addArrow(
-              [[origin.x + CFG.pod.w / 2, spineY], [origin.x + CFG.pod.w / 2, origin.y - 4]],
+              [[cx, spineY], [cx, o.y - 4]],
               { startArrowHead: null, endArrowHead: "arrow", strokeStyle: "dashed", strokeColor: CFG.colors.arrow, elbowed: true }
             );
-            stamp(aId, key + "|arrow", sf.name, "arrow", slot);
-          }
-        } else {
-          // TD (default): vertical spine on the left, horizontal stubs into pods
-          const spineX = -40;
-          const ys = subfoldersCapped.map((sf) => (podOrigin.get(sf.path) || slotPos.pod(podSlots.get(sf.path))).y + 18);
-          const lastY = Math.max(...ys);
-          const spineId = ea.addArrow(
-            [[spineX, 40], [spineX, lastY]],
-            { startArrowHead: null, endArrowHead: null, strokeStyle: "dashed", strokeColor: CFG.colors.arrow, elbowed: true }
-          );
-          stamp(spineId, "spine|" + folder.path, folder.name, "spine", 0);
-          for (const sf of subfoldersCapped) {
-            const key = "pod|" + sf.path;
-            const slot = podSlots.get(sf.path);
-            const origin = podOrigin.get(sf.path) || slotPos.pod(slot);
-            const aId = ea.addArrow(
-              [[spineX, origin.y + 18], [origin.x + 16, origin.y + 18]],
-              { startArrowHead: null, endArrowHead: "arrow", strokeStyle: "dashed", strokeColor: CFG.colors.arrow, elbowed: true }
-            );
-            stamp(aId, key + "|arrow", sf.name, "arrow", slot);
-          }
+            stamp(aId, key + "|arrow", sf.name, "arrow", i);
+          });
         }
       }
 

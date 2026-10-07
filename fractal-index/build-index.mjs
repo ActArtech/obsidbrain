@@ -206,15 +206,21 @@ function buildFolderIndex(folderRel) {
       });
     }
   }
-  sections.push({
-    name: "pods",
-    components: subfoldersCapped.map((name) => Pod({
-      name,
-      childCount: fs.readdirSync(path.join(abs, name)).length,
-      embedPath: indexPaths.includes(prefix + name + "/" + CFG.indexName) ? prefix + name + "/" + CFG.indexName : null,
-    })),
-    gapBefore: 60,
-  });
+  // balanced pod grid: ceil(sqrt(n)) pods per row, wrapped rows stacked
+  const podComponents = subfoldersCapped.map((name) => Pod({
+    name,
+    childCount: fs.readdirSync(path.join(abs, name)).length,
+    embedPath: indexPaths.includes(prefix + name + "/" + CFG.indexName) ? prefix + name + "/" + CFG.indexName : null,
+  }));
+  const podCols = Math.max(1, Math.min(podComponents.length, Math.ceil(Math.sqrt(podComponents.length))));
+  for (let r = 0; r < podComponents.length; r += podCols) {
+    sections.push({
+      name: "pods",
+      components: podComponents.slice(r, r + podCols),
+      gapBefore: r === 0 ? 60 : 0,
+      gapY: 40,
+    });
+  }
   sections.push({
     name: "files",
     components: filesCapped.map((name) => FileCard({

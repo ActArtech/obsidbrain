@@ -184,15 +184,29 @@ function mapDirection(elements) {
 }
 
 function idealStubPoints(elements, arrow, direction) {
+  // Geometry matches the v3 generator: balanced square grid in both
+  // directions. TD: horizontal spine above at y=120, vertical stubs into
+  // first-row pods. LR: vertical spine at x=-40, horizontal stubs into
+  // first-column pods. The pod label sits at (podX+16, podY+14);
+  // pod w=380, h=300.
   const key = String((arrow.customData || {}).key || "");
   if (!key.startsWith("pod|") || !key.endsWith("|arrow")) return null;
-  const label = elements.find((el) => el.customData && el.customData.key === key.replace(/\|arrow$/, "|label") && !el.isDeleted);
+  const labels = elements.filter(
+    (el) => el.customData && el.customData.kind === "pod-label" && !el.isDeleted
+  );
+  if (!labels.length) return null;
+  const label = labels.find((el) => el.customData.key === key.replace(/\|arrow$/, "|label"));
   if (!label) return null;
   if (direction === "LR") {
-    const centerX = label.x - 16 + 190;
-    return [[centerX, 120], [centerX, label.y - 18]];
+    const minX = Math.min(...labels.map((l) => l.x));
+    if (label.x > minX + 40) return null; // later columns: no stub
+    const cy = label.y - 14 + 150;
+    return [[-40, cy], [label.x - 20, cy]];
   }
-  return [[-40, label.y + 18], [label.x - 4, label.y + 18]];
+  const minY = Math.min(...labels.map((l) => l.y));
+  if (label.y > minY + 40) return null; // later rows: no stub
+  const cx = label.x - 16 + 190;
+  return [[cx, 120], [cx, label.y - 18]];
 }
 
 function idealSpinePoints(elements, direction) {
@@ -201,11 +215,13 @@ function idealSpinePoints(elements, direction) {
   );
   if (!labels.length) return null;
   if (direction === "LR") {
-    const lastX = Math.max(...labels.map((l) => l.x - 16 + 190));
-    return [[0, 120], [lastX, 120]];
+    const minX = Math.min(...labels.map((l) => l.x));
+    const firstCol = labels.filter((l) => l.x <= minX + 40);
+    const lastCy = Math.max(...firstCol.map((l) => l.y - 14 + 150));
+    return [[-40, 160], [-40, lastCy]];
   }
-  const lastY = Math.max(...labels.map((l) => l.y + 18));
-  return [[-40, 40], [-40, lastY]];
+  const lastX = Math.max(...labels.map((l) => l.x - 16 + 190));
+  return [[0, 120], [lastX, 120]];
 }
 
 function samePoints(a, b) {
