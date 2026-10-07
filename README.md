@@ -4,7 +4,7 @@
 
 Turn any folder into a stable, zoomable, infinitely-nestable visual map — with positions that never move out from under you, and arrows that come from your *actual* wikilinks.
 
-![demo](docs/images/garden-root.png)
+![demo](docs/images/demo.gif)
 
 > Every image in this README is rendered from a real generated map. See the full [Gallery](docs/GALLERY.md).
 
