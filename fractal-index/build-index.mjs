@@ -1,27 +1,25 @@
 #!/usr/bin/env node
-// build-index.mjs — rebuild Fractal Index maps DIRECTLY ON DISK (no Obsidian needed).
+// build-index.mjs — rebuild Fractal Index maps DIRECTLY ON DISK (no Obsidian).
 //
-//   node build-index.mjs <vaultPath>              # rebuild every brain in the vault
-//   node build-index.mjs <vaultPath> Garden       # rebuild one brain
+//   node build-index.mjs <vaultPath> [brainFolder]
 //
-// Fresh generation with the current layout engine (balanced grid v2,
-// relationship-aware curved arrows). The interactive ea-script remains the
-// tool for adoption/position-preserving regeneration; this tool is the
-// clean-slate rebuild.
+// Component-based generation: Title/Breadcrumb/Pod/FileCard components measure
+// themselves; the layout solver packs them with a zero-overlap invariant.
+// Layout v3.
 
 import fs from "node:fs";
 import path from "node:path";
+import { Title, Breadcrumb, Pod, FileCard } from "./lib/components.mjs";
+import { compose } from "./lib/layout.mjs";
 
 const CFG = {
   indexName: "_index.excalidraw.md",
   maxItems: 500,
   maxLinks: 60,
-  layoutVersion: 2,
-  fileCard: { w: 230, h: 64, cols: 5, gx: 36, gy: 26, fontSize: 20 },
-  pod: { w: 380, h: 300, gapY: 60, gapX: 60, fontSize: 26 },
-  embed: { marginX: 20, topOffset: 96, bottomMargin: 16 },
-  colors: { folderStroke: "#8b5cf6", arrow: "#c4c4c4", link: "#a78bfa", muted: "#8a8a8a", text: "#1e1e1e" },
-  gridY0: 160,
+  layoutVersion: 3,
+  maxWidth: 2300,
+  gapX: 60,
+  gapY: 60,
 };
 const REL_STYLE = {
   resonates: { w: 2.5, dash: "solid", op: 100, color: "#7c3aed" },
@@ -54,28 +52,24 @@ const allFiles = all.filter((e) => !e.dir);
 const mdFiles = allFiles.filter((f) => f.rel.endsWith(".md"));
 
 /* ── wikilink extraction + resolution ── */
-const linksOf = new Map(); // rel md path → resolved target rel paths
-const byPath = new Map(); // "a/b" and "a/b.md" → rel
-const byBase = new Map(); // basename (no ext) → [rel]
+const linksOf = new Map();
+const byPath = new Map();
+const byBase = new Map();
 for (const f of allFiles) {
-  const rel = f.rel;
-  byPath.set(rel, rel);
-  const noExt = rel.replace(/\.md$/, "");
-  byPath.set(noExt, rel);
-  const base = path.basename(rel).replace(/\.md$/, "");
+  byPath.set(f.rel, f.rel);
+  byPath.set(f.rel.replace(/\.md$/, ""), f.rel);
+  const base = path.basename(f.rel).replace(/\.md$/, "");
   if (!byBase.has(base)) byBase.set(base, []);
-  byBase.get(base).push(rel);
+  byBase.get(base).push(f.rel);
 }
 function resolveLink(srcRel, raw) {
   const t = raw.trim();
   if (byPath.has(t)) return byPath.get(t);
-  const dir = path.posix.dirname(srcRel);
-  const inFolder = path.posix.normalize(path.posix.join(dir, t));
+  const inFolder = path.posix.normalize(path.posix.join(path.posix.dirname(srcRel), t));
   if (byPath.has(inFolder)) return byPath.get(inFolder);
   if (byPath.has(inFolder + ".md")) return byPath.get(inFolder + ".md");
   const hits = byBase.get(t.replace(/\.md$/, ""));
-  if (hits && hits.length) return hits[0];
-  return null;
+  return hits && hits.length ? hits[0] : null;
 }
 for (const f of mdFiles) {
   const content = fs.readFileSync(f.abs, "utf8");
@@ -87,159 +81,27 @@ for (const f of mdFiles) {
   if (Object.keys(resolved).length) linksOf.set(f.rel, resolved);
 }
 
-/* ── find brains: roots = folders with _index whose parent has none ── */
+/* ── brains ── */
 const indexPaths = allFiles.filter((f) => path.basename(f.rel) === CFG.indexName).map((f) => f.rel);
 const brains = [];
 for (const ip of indexPaths) {
   const dir = path.posix.dirname(ip);
   const parentDir = dir.includes("/") ? path.posix.dirname(dir) : "";
-  if (!indexPaths.includes((parentDir ? parentDir + "/" : "") + CFG.indexName)) {
-    brains.push(dir === "." ? "" : dir);
-  }
+  if (!indexPaths.includes((parentDir ? parentDir + "/" : "") + CFG.indexName)) brains.push(dir === "." ? "" : dir);
 }
 const targets = onlyBrain ? brains.filter((b) => b === onlyBrain) : brains;
-if (!targets.length) { console.error("no brains found" + (onlyBrain ? " matching " + onlyBrain : "")); process.exit(1); }
+if (!targets.length) { console.error("no brains found"); process.exit(1); }
 
-/* ── deterministic id ── */
-function hash(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
-  return h >>> 0;
+/* ── link graph helpers ── */
+function classifyRel(a, b, mutual) {
+  if (mutual) return "resonates";
+  const aPod = a.endsWith("/"), bPod = b.endsWith("/");
+  if (aPod && bPod) return "bridges";
+  if (aPod && !bPod) return "nourishes";
+  if (!aPod && bPod) return "feeds";
+  return "peer";
 }
-const sid = (seed) => "fi" + hash(seed).toString(36) + (hash(seed + "#2") % 1679616).toString(36).padStart(4, "0");
-const wl = (p) => "[[" + String(p).replace(/([\[\]|])/g, "\\$1") + "]]";
-
-/* ── element factory (full schema, plugin-compatible) ── */
-function el(type, seed, x, y, w, h, extra = {}) {
-  return {
-    id: sid(seed), type, x, y, width: w, height: h, angle: 0,
-    strokeColor: "#1e1e1e", backgroundColor: "transparent", fillStyle: "solid",
-    strokeWidth: 1, strokeStyle: "solid", roughness: 1, opacity: 100,
-    roundness: null, seed: 1, version: 1, versionNonce: 1,
-    updated: 1, isDeleted: false, boundElements: [], groupIds: [],
-    frameId: null, link: null, locked: false, ...extra,
-  };
-}
-function textEl(seed, x, y, str, { size = 20, color = "#1e1e1e", align = "left", link = null } = {}) {
-  const lines = String(str).split("\n");
-  const w = Math.ceil(Math.max(...lines.map((l) => l.length), 1) * size * 0.58);
-  const h = Math.ceil(lines.length * size * 1.3);
-  const e = el("text", "t|" + seed, x, y, w, h, {
-    text: String(str), fontSize: size, fontFamily: 2, textAlign: align,
-    verticalAlign: "top", containerId: null, originalText: String(str), lineHeight: 1.3, autoResize: true, link,
-  });
-  return e;
-}
-
-function buildFolderIndex(folderRel) {
-  const abs = path.join(vault, folderRel);
-  const prefix = folderRel ? folderRel + "/" : "";
-  const elements = [];
-  const add = (e, key, kind, slot) => {
-    e.customData = { fractalIndex: true, key, basename: path.basename(key.replace(/^[a-z]+\|/, "").replace(/\|.*$/, "") || folderRel), kind, slot };
-    elements.push(e);
-    return e;
-  };
-
-  const children = fs.existsSync(abs)
-    ? fs.readdirSync(abs, { withFileTypes: true }).filter((e) => !e.name.startsWith("."))
-    : [];
-  const subfolders = children.filter((e) => e.isDirectory()).map((e) => e.name).sort();
-  const files = children.filter((e) => e.isFile() && e.name !== CFG.indexName).map((e) => e.name).sort();
-  const filesCapped = files.slice(0, CFG.maxItems);
-  const subfoldersCapped = subfolders.slice(0, Math.max(0, CFG.maxItems - filesCapped.length));
-
-  /* slots (balanced grid) */
-  const podCols = Math.max(1, Math.min(subfoldersCapped.length, Math.ceil(Math.sqrt(subfoldersCapped.length * 1.5))));
-  const podRows = Math.ceil(subfoldersCapped.length / podCols);
-  const podsBottom = CFG.gridY0 + podRows * (CFG.pod.h + CFG.pod.gapY) - CFG.pod.gapY;
-  const fileCols = Math.max(CFG.fileCard.cols, podCols);
-  const podPos = (s) => ({ x: (s % podCols) * (CFG.pod.w + CFG.pod.gapX), y: CFG.gridY0 + Math.floor(s / podCols) * (CFG.pod.h + CFG.pod.gapY) });
-  const filePos = (s) => ({ x: 40 + (s % fileCols) * (CFG.fileCard.w + CFG.fileCard.gx), y: podsBottom + 80 + Math.floor(s / fileCols) * (CFG.fileCard.h + CFG.fileCard.gy) });
-
-  /* title */
-  const isRoot = !folderRel;
-  const title = textEl("title|" + folderRel, 0, 0, "🧠 " + (isRoot ? "Vault" : path.basename(folderRel)), { size: 36 });
-  title.customData = { fractalIndex: true, key: "title|" + folderRel, basename: path.basename(folderRel), kind: "title", slot: 0, layoutVersion: CFG.layoutVersion };
-  elements.push(title);
-
-  /* breadcrumb */
-  const parentIndexPath = isRoot ? null : path.posix.dirname(folderRel) + "/" + CFG.indexName;
-  if (!isRoot && indexPaths.includes(parentIndexPath.replace(/^\.\//, ""))) {
-    const bc = textEl("bc|" + folderRel, 0, 62, "↑ " + (path.posix.dirname(folderRel) === "." ? "vault" : path.posix.basename(path.posix.dirname(folderRel))) + "/", { size: 18, color: "#8a8a8a", link: wl(parentIndexPath) });
-    bc.customData = { fractalIndex: true, key: "bc|" + folderRel, basename: "..", kind: "breadcrumb", slot: 0 };
-    elements.push(bc);
-  }
-
-  /* pods */
-  subfoldersCapped.forEach((name, slot) => {
-    const key = "pod|" + prefix + name;
-    const { x, y } = podPos(slot);
-    const subIndexPath = prefix + name + "/" + CFG.indexName;
-    const hasIndex = indexPaths.includes(subIndexPath);
-    add(el("frame", key + "|frame", x, y, CFG.pod.w, CFG.pod.h, { name: " ", strokeColor: "#8b5cf6", strokeWidth: 2 }), key + "|frame", name, slot);
-    const motif = add(el("rectangle", key + "|motif", x + 8, y + 8, CFG.pod.w - 16, CFG.pod.h - 16, { strokeColor: "#8b5cf6", strokeStyle: "dashed", strokeWidth: 1 }), key + "|motif", name, slot);
-    motif.strokeStyle = "dashed";
-    const label = add(textEl(key + "|label", x + 16, y + 14, "📁 " + name + "  (" + fs.readdirSync(path.join(abs, name)).length + ")", { size: CFG.pod.fontSize, color: "#8b5cf6", link: hasIndex ? wl(subIndexPath) : null }), key + "|label", name, slot);
-    if (hasIndex) {
-      add(el("embeddable", key + "|embed", x + CFG.embed.marginX, y + CFG.embed.topOffset, CFG.pod.w - 2 * CFG.embed.marginX, CFG.pod.h - CFG.embed.topOffset - CFG.embed.bottomMargin,
-        { strokeColor: "#8b5cf6", link: wl(subIndexPath), scale: [1, 1] }), key + "|embed", name, slot);
-    } else {
-      add(textEl(key + "|hint", x + CFG.embed.marginX, y + CFG.embed.topOffset, "(no _index yet — run Fractal Index inside\nthis subfolder to grow the fractal)", { size: 16, color: "#8a8a8a" }), key + "|hint", name, slot);
-    }
-    add(textEl(key + "|dive", x + CFG.pod.w - 150, y - 24, "⤢ click pod to dive", { size: 14, color: "#a78bfa", align: "right" }), key + "|dive", name, slot);
-  });
-
-  /* file cards */
-  const iconFor = (name) =>
-    /\.md$/.test(name) ? "📝" : /\.(png|jpg|jpeg|gif|svg|webp|avif)$/.test(name) ? "🖼️" : /\.pdf$/.test(name) ? "📕" : "📄";
-  filesCapped.forEach((name, slot) => {
-    const key = "file|" + prefix + name;
-    const { x, y } = filePos(slot);
-    const card = add(textEl(key, x, y, iconFor(name) + " " + path.basename(name).replace(/\.md$/, ""), {
-      size: CFG.fileCard.fontSize, link: wl(prefix + name),
-    }), key, name, slot);
-    // card box
-    const box = el("rectangle", key + "|box", x - 10, y - 10, card.width + 20, card.height + 20, { strokeColor: "#1e1e1e", strokeWidth: 1 });
-    box.customData = { fractalIndex: true, key, basename: name, kind: "file-box", slot };
-    elements.splice(elements.length - 1, 0, box);
-  });
-
-  /* spine + stubs (first row) */
-  if (subfoldersCapped.length) {
-    const spineY = CFG.gridY0 - 40;
-    const centers = subfoldersCapped.map((name, slot) => podPos(slot).x + CFG.pod.w / 2);
-    const spine = el("arrow", "spine|" + folderRel, 0, spineY, Math.max(...centers), 0, {
-      points: [[0, 0], [Math.max(...centers), 0]], strokeColor: "#c4c4c4", strokeStyle: "dashed", elbowed: true,
-    });
-    spine.customData = { fractalIndex: true, key: "spine|" + folderRel, basename: path.basename(folderRel), kind: "spine", slot: 0 };
-    elements.push(spine);
-    subfoldersCapped.forEach((name, slot) => {
-      const { x } = podPos(slot);
-      const { y } = podPos(slot);
-      if (y > CFG.gridY0) return; // later rows: no stub
-      const cx = x + CFG.pod.w / 2;
-      const a = el("arrow", "pod|" + prefix + name + "|arrow", cx, spineY, 0, y - 4 - spineY, {
-        points: [[0, 0], [0, y - 4 - spineY]], strokeColor: "#c4c4c4", strokeStyle: "dashed", elbowed: true,
-        startArrowhead: null, endArrowhead: "arrow",
-      });
-      a.customData = { fractalIndex: true, key: "pod|" + prefix + name + "|arrow", basename: name, kind: "arrow", slot };
-      elements.push(a);
-    });
-  }
-
-  /* ── ExcaliBrain dimension: link arrows from resolved wikilinks ── */
-  const cardRect = new Map();
-  for (const f of filesCapped) {
-    const key = "file|" + prefix + f;
-    const card = elements.find((e) => e.customData?.key === key && e.type === "text");
-    if (card) cardRect.set(prefix + f, { x: card.x - 10, y: card.y - 10, w: card.width + 20, h: card.height + 20 });
-  }
-  for (const name of subfoldersCapped) {
-    const { x, y } = podPos(subfoldersCapped.indexOf(name));
-    cardRect.set(prefix + name + "/", { x, y, w: CFG.pod.w, h: CFG.pod.h });
-  }
-  const podKeys = subfoldersCapped.map((n) => prefix + n + "/");
+function buildEdges(prefix, files, podKeys) {
   const edges = new Map();
   const addEdge = (src, dst, w) => {
     const k = src + "=>" + dst;
@@ -247,29 +109,38 @@ function buildFolderIndex(folderRel) {
     if (e) e.weight += w;
     else edges.set(k, { src, dst, weight: w });
   };
-  for (const f of filesCapped) {
+  for (const f of files) {
     const targets = linksOf.get(prefix + f) || {};
     for (const tp in targets) {
-      if (cardRect.has(tp)) addEdge(prefix + f, tp, targets[tp]);
-      for (const pk of podKeys) {
-        if (tp === pk || tp.startsWith(pk)) addEdge(prefix + f, pk, 1);
-      }
+      if (!targets[tp]) continue;
+      if (podKeys.some((pk) => tp === pk)) { addEdge(prefix + f, podKeys.find((pk) => tp === pk), 1); continue; }
+      const inPod = podKeys.find((pk) => tp.startsWith(pk));
+      if (inPod) { addEdge(prefix + f, inPod, 1); continue; }
+      if (files.includes(tp.slice(prefix.length)) && tp.startsWith(prefix)) addEdge(prefix + f, tp, targets[tp]);
     }
   }
   for (const src in linksOf) {
-    for (const pk of podKeys) {
-      if (src.startsWith(pk.slice(0, -1) + "/")) {
-        const targets = linksOf.get(src);
-        for (const tp in targets) {
-          if (!targets[tp]) continue;
-          if (cardRect.has(tp) && !tp.endsWith("/")) addEdge(pk, tp, 1);
-          else for (const pk2 of podKeys) {
-            if (pk2 !== pk && (tp === pk2 || tp.startsWith(pk2))) addEdge(pk, pk2, 1);
-          }
-        }
-      }
+    if (!src.startsWith(prefix)) continue;
+    const rel = src.slice(prefix.length);
+    const top = rel.includes("/") ? rel.slice(0, rel.indexOf("/")) : null;
+    if (top && files.includes(top + "/")) continue;
+    if (files.includes(rel)) continue; // own files already handled
+    const inPod = top && podKeys.includes(prefix + top + "/") ? prefix + top + "/" : null;
+    if (!inPod && !top) continue;
+    const srcKey = inPod ?? null;
+    if (!srcKey) continue;
+    const targets = linksOf.get(src);
+    for (const tp in targets) {
+      if (!targets[tp] || tp === src) continue;
+      if (podKeys.includes(tp)) { addEdge(srcKey, tp, 1); continue; }
+      const tpInPod = podKeys.find((pk) => tp.startsWith(pk));
+      if (tpInPod) { addEdge(srcKey, tpInPod, 1); continue; }
+      if (tp.startsWith(prefix) && files.includes(tp.slice(prefix.length))) addEdge(srcKey, tp, 1);
     }
   }
+  return edges;
+}
+function mergeMutual(edges) {
   const merged = [];
   const seen = new Set();
   for (const [k, e] of [...edges.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
@@ -281,15 +152,149 @@ function buildFolderIndex(folderRel) {
     else merged.push({ a: e.src, b: e.dst, weight: e.weight, mutual: false });
   }
   merged.sort((x, y) => y.weight - x.weight || (x.a + x.b < y.a + y.b ? -1 : 1));
-  const drawn = merged.slice(0, CFG.maxLinks);
-  const classifyRel = (a, b, mutual) => {
-    if (mutual) return "resonates";
-    const aPod = a.endsWith("/"), bPod = b.endsWith("/");
-    if (aPod && bPod) return "bridges";
-    if (aPod && !bPod) return "nourishes";
-    if (!aPod && bPod) return "feeds";
-    return "peer";
+  return merged.slice(0, CFG.maxLinks);
+}
+
+/* ── element factory (mirror of lib/components.mjs internals) ── */
+function hash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+  return h >>> 0;
+}
+const sid = (seed) => "fi" + hash(seed).toString(36) + (hash(seed + "#2") % 1679616).toString(36).padStart(4, "0");
+function el(type, seed, x, y, w, h, extra = {}) {
+  return {
+    id: sid(seed), type, x, y, width: w, height: h, angle: 0,
+    strokeColor: extra.color || "#1e1e1e", backgroundColor: extra.fill || "transparent",
+    fillStyle: "solid", strokeWidth: extra.strokeWidth || 1, strokeStyle: extra.dash || "solid",
+    roughness: 1, opacity: extra.op ?? 100, roundness: extra.round ?? null,
+    seed: 1, version: 1, versionNonce: 1, updated: 1, isDeleted: false,
+    boundElements: [], groupIds: [], frameId: null, link: extra.link ?? null, locked: false,
+    ...(type === "arrow" ? { points: extra.points, startArrowhead: extra.startArrowhead ?? null, endArrowhead: extra.endArrowhead ?? "arrow" } : {}),
+    ...(type === "embeddable" ? { scale: [1, 1] } : {}),
+    ...(type === "text" ? { text: extra.text || "", fontSize: extra.fontSize || 20, fontFamily: 2, textAlign: "left", verticalAlign: "top", containerId: null, originalText: extra.text || "", lineHeight: 1.3, autoResize: true } : {}),
+    ...(seed.startsWith("podframe|") ? { name: " " } : {}),
+    ...(extra.customData ? { customData: extra.customData } : {}),
   };
+}
+
+/* ── build one folder's index from components + solver ── */
+function buildFolderIndex(folderRel) {
+  const abs = path.join(vault, folderRel);
+  const prefix = folderRel ? folderRel + "/" : "";
+  const children = fs.existsSync(abs)
+    ? fs.readdirSync(abs, { withFileTypes: true }).filter((e) => !e.name.startsWith("."))
+    : [];
+  const subfolders = children.filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  const files = children.filter((e) => e.isFile() && e.name !== CFG.indexName).map((e) => e.name).sort();
+  const filesCapped = files.slice(0, CFG.maxItems);
+  const subfoldersCapped = subfolders.slice(0, Math.max(0, CFG.maxItems - filesCapped.length));
+  const podKeys = subfoldersCapped.map((n) => prefix + n + "/");
+
+  /* components */
+  const isRoot = !folderRel;
+  const title = Title({ text: "🧠 " + (isRoot ? "Vault" : path.basename(folderRel)), size: 36 });
+  const sections = [{ name: "header", components: [title], gapBefore: 40, gapY: 8 }];
+  if (!isRoot) {
+    const parentDir = path.posix.dirname(folderRel);
+    const parentIndexPath = parentDir + "/" + CFG.indexName;
+    if (indexPaths.includes(parentIndexPath)) {
+      sections.push({
+        name: "breadcrumb",
+        components: [Breadcrumb({ text: "↑ " + path.posix.basename(parentDir) + "/", link: parentIndexPath })],
+        gapBefore: 16, gapY: 4,
+      });
+    }
+  }
+  sections.push({
+    name: "pods",
+    components: subfoldersCapped.map((name) => Pod({
+      name,
+      childCount: fs.readdirSync(path.join(abs, name)).length,
+      embedPath: indexPaths.includes(prefix + name + "/" + CFG.indexName) ? prefix + name + "/" + CFG.indexName : null,
+    })),
+    gapBefore: 60,
+  });
+  sections.push({
+    name: "files",
+    components: filesCapped.map((name) => FileCard({
+      icon: /\.md$/.test(name) ? "📝" : /\.(png|jpg|jpeg|gif|svg|webp|avif)$/.test(name) ? "🖼️" : /\.pdf$/.test(name) ? "📕" : "📄",
+      name: name.replace(/\.md$/, ""),
+      link: prefix + name,
+    })),
+    gapBefore: 80,
+  });
+
+  /* solve layout (throws on any overlap) */
+  const { placedBySection, elementChunks, height } = compose(sections, { maxWidth: CFG.maxWidth, gapX: CFG.gapX, gapY: CFG.gapY });
+
+  const elements = [];
+  const KIND_BY_SEED = {
+    podframe: ["frame", ""], podmotif: ["pod-motif", "motif"], podlabel: ["pod-label", "label"],
+    podembed: ["embed", "embed"], podhint: ["hint", "hint"], chip: ["dive-hint", "dive"],
+  };
+  for (const chunk of elementChunks) {
+    for (const spec of chunk.els) {
+      const e = spec.make(spec.seed);
+      // derive semantic identity from the component seed:
+      //   podframe|<folder-name>  -> pod|<prefix><name>|frame   (etc.)
+      //   cardbox|<file-name>     -> file|<prefix><name>         (etc.)
+      const podM = spec.seed.match(/^(podframe|podmotif|podlabel|podembed|podhint|chip)\|(.*)$/);
+      const cardM = spec.seed.match(/^(cardbox|cardtext)\|(.*)$/);
+      if (podM) {
+        const suffix = KIND_BY_SEED[podM[1]][1];
+        e.customData = {
+          fractalIndex: true,
+          key: "pod|" + prefix + podM[2] + (suffix ? "|" + suffix : ""),
+          basename: podM[2], kind: KIND_BY_SEED[podM[1]][0], slot: 0,
+        };
+      } else if (cardM) {
+        e.customData = {
+          fractalIndex: true,
+          key: "file|" + prefix + cardM[2],
+          basename: cardM[2], kind: cardM[1] === "cardbox" ? "file-box" : "file", slot: 0,
+        };
+      } else if (spec.seed.startsWith("title|") || spec.seed.startsWith("bc|")) {
+        e.customData = {
+          fractalIndex: true,
+          key: (spec.seed.startsWith("title|") ? "title|" : "bc|") + folderRel,
+          basename: path.basename(folderRel), kind: spec.seed.startsWith("title|") ? "title" : "breadcrumb", slot: 0,
+        };
+      }
+      elements.push(e);
+    }
+  }
+
+  /* spine + orthogonal stubs down to first-row pods */
+  const podPlacements = placedBySection.filter((p) => p.section === "pods");
+  if (podPlacements.length) {
+    const spineY = podPlacements[0].y - 44;
+    const lastX = Math.max(...podPlacements.map((p) => p.x + p.w / 2));
+    elements.push(el("arrow", "spine|" + folderRel, 0, spineY, lastX, 0, {
+      points: [[0, 0], [lastX, 0]], color: "#c4c4c4", dash: "dashed", elbowed: true,
+      customData: { fractalIndex: true, key: "spine|" + folderRel, basename: path.basename(folderRel), kind: "spine", slot: 0 },
+    }));
+    for (const p of podPlacements) {
+      if (p.y > podPlacements[0].y) continue; // later rows: no stub
+      const cx = p.x + p.w / 2;
+      elements.push(el("arrow", "stub|" + p.item.label, cx, spineY, 0, p.y - 4 - spineY, {
+        points: [[0, 0], [0, p.y - 4 - spineY]], color: "#c4c4c4", dash: "dashed", elbowed: true,
+        startArrowhead: null, endArrowhead: "arrow",
+        customData: { fractalIndex: true, key: "stub|" + p.item.label, basename: p.item.label, kind: "arrow", slot: 0 },
+      }));
+    }
+  }
+
+  /* ── link arrows between placed components ── */
+  const podByKey = new Map();
+  const cardByKey = new Map();
+  for (const p of placedBySection) {
+    const label = p.item.label || p.item.name || "";
+    if (p.section === "pods") podByKey.set(prefix + label + "/", { x: p.x, y: p.y, w: p.w, h: p.h });
+    if (p.section === "files") cardByKey.set(prefix + label + ".md", { x: p.x, y: p.y, w: p.w, h: p.h });
+  }
+  const edges = buildEdges(prefix, filesCapped.map((f) => f), podKeys);
+  const drawn = mergeMutual(edges);
   const anchor = (r, toward) => {
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
     const dx = toward.x + toward.w / 2 - cx, dy = toward.y + toward.h / 2 - cy;
@@ -303,7 +308,8 @@ function buildFolderIndex(folderRel) {
   for (const [, list] of bySrc) list.forEach((e, i) => srcIndex.set(e, i));
 
   for (const e of drawn) {
-    const ra = cardRect.get(e.a), rb = cardRect.get(e.b);
+    const ra = podByKey.get(e.a) || cardByKey.get(e.a);
+    const rb = podByKey.get(e.b) || cardByKey.get(e.b);
     if (!ra || !rb) continue;
     const p1 = anchor(ra, rb), p2 = anchor(rb, ra);
     const rel = classifyRel(e.a, e.b, e.mutual);
@@ -317,21 +323,18 @@ function buildFolderIndex(folderRel) {
       ox = (-dy / len) * off; oy = (dx / len) * off;
     }
     const key = "link|" + e.a + "=>" + e.b;
-    const a = el("arrow", key, p1[0] + ox, p1[1] + oy,
-      Math.abs(p2[0] - p1[0]), Math.abs(p2[1] - p1[1]), {
+    elements.push(el("arrow", key, p1[0] + ox, p1[1] + oy, Math.abs(p2[0] - p1[0]), Math.abs(p2[1] - p1[1]), {
       points: [[0, 0], [p2[0] - p1[0], p2[1] - p1[1]]],
-      strokeColor: style.color, strokeWidth: style.w, strokeStyle: style.dash,
-      opacity: style.op, roundness: { type: 1 },
-      startArrowhead: e.mutual ? "arrow" : null, endArrowhead: "arrow",
-    });
-    a.customData = { fractalIndex: true, key, basename: path.basename(e.a), kind: "link", slot: 0, rel };
-    elements.push(a);
+      color: style.color, strokeWidth: style.w, dash: style.dash, op: style.op,
+      round: { type: 1 }, startArrowhead: e.mutual ? "arrow" : null, endArrowhead: "arrow",
+      customData: { fractalIndex: true, key, basename: path.basename(e.a), kind: "link", slot: 0, rel },
+    }));
   }
 
-  return elements;
+  return { elements, height };
 }
 
-/* ── serialize to .excalidraw.md ── */
+/* ── serialize ── */
 function toMD(elements) {
   const full = elements.map((e) => ({
     id: e.id, type: e.type,
@@ -350,17 +353,16 @@ function toMD(elements) {
     } : {}),
     ...(e.type === "arrow" ? { points: e.points, startArrowhead: e.startArrowhead ?? null, endArrowhead: e.endArrowhead ?? "arrow" } : {}),
     ...(e.type === "embeddable" ? { scale: e.scale || [1, 1] } : {}),
-    ...(e.type === "frame" && e.name !== undefined ? { name: e.name } : {}),
     ...(e.customData ? { customData: e.customData } : {}),
   }));
   const textSection = full.filter((e) => e.type === "text").map((t) => `${t.text.split("\n").join(" ")} ^${t.id}`).join("\n");
-  const scene = { type: "excalidraw", version: 2, source: "fractal-index build-index", elements: full, appState: { grid: null, viewBackgroundColor: "#ffffff" }, files: {} };
+  const scene = { type: "excalidraw", version: 2, source: "fractal-index build-index v3", elements: full, appState: { grid: null, viewBackgroundColor: "#ffffff" }, files: {} };
   return ["---", "excalidraw-plugin: parsed", "tags: [excalidraw]", "---", "",
     "# Excalidraw Data", "## Text Elements", textSection, "",
     "## Drawing", "```json", JSON.stringify(scene, null, 2), "```", ""].join("\n");
 }
 
-/* ── rebuild targets: top-down so breadcrumbs/embeds reference existing files ── */
+/* ── rebuild: top-down so embeds/breadcrumbs reference existing files ── */
 let generated = 0;
 for (const brain of targets) {
   const prefix = brain ? brain + "/" : "";
@@ -368,11 +370,10 @@ for (const brain of targets) {
     .filter((f, i, a) => a.indexOf(f) === i)
     .sort((a, b) => a.split("/").length - b.split("/").length);
   for (const folder of folders) {
-    const els = buildFolderIndex(folder);
-    const out = path.join(vault, folder, CFG.indexName);
-    fs.writeFileSync(out, toMD(els), "utf8");
+    const { elements, height } = buildFolderIndex(folder);
+    fs.writeFileSync(path.join(vault, folder, CFG.indexName), toMD(elements), "utf8");
     generated++;
-    console.log("  ✓", (folder || "(vault root)") + "/" + CFG.indexName, "—", els.length, "elements");
+    console.log("  ✓", (folder || "(vault root)") + "/" + CFG.indexName, "—", elements.length, "elements,", Math.round(height), "px tall");
   }
 }
-console.log(`\nrebuilt ${generated} index drawings (layout v${CFG.layoutVersion}, balanced grid, relationship arrows)`);
+console.log(`\nrebuilt ${generated} index drawings (layout v${CFG.layoutVersion}: component-based, zero-overlap solver)`);

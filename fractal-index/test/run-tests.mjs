@@ -743,6 +743,46 @@ check("T20b SVG preview uses only whitelisted tags", () => {
   unmountGlobals();
 }
 
+/* === T33 component system: zero-overlap invariant on generated maps === */
+{
+  const { execFileSync } = await import("node:child_process");
+  await checkAsync("T33 zero-overlap: every demo brain rebuilds clean through the component solver", async () => {
+    const tmpVault = path.join(HERE, "tmp-overlap");
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+    // install all three demo brains into one vault
+    for (const demo of ["research-brain", "project-hub", "knowledge-garden"]) {
+      execFileSync("node", [path.join(HERE, "..", "examples", "install-demo.mjs"), demo, tmpVault], { stdio: "ignore" });
+    }
+    // rebuild through the component system
+    execFileSync("node", [path.join(HERE, "..", "build-index.mjs"), tmpVault], { stdio: "pipe" });
+    // invariant: pod frames, card boxes pairwise disjoint; cards vs pods disjoint
+    const intersect = (a, b) =>
+      a.x + a.width > b.x + 1 && b.x + b.width > a.x + 1 &&
+      a.y + a.height > b.y + 1 && b.y + b.height > a.y + 1;
+    let checked = 0;
+    for (const f of fs.readdirSync(tmpVault, { recursive: true })) {
+      if (!String(f).endsWith("_index.excalidraw.md")) continue;
+      const md = fs.readFileSync(path.join(tmpVault, String(f)), "utf8");
+      const scene = JSON.parse(md.match(/```json\n([\s\S]*?)\n```/)[1]);
+      const els = scene.elements.filter((e) => !e.isDeleted);
+      const podFrames = els.filter((e) => e.customData?.kind === "frame");
+      const cardBoxes = els.filter((e) => e.customData?.kind === "file-box");
+      for (let i = 0; i < podFrames.length; i++)
+        for (let j = i + 1; j < podFrames.length; j++)
+          assert.ok(!intersect(podFrames[i], podFrames[j]), `pod frames overlap in ${f}`);
+      for (let i = 0; i < cardBoxes.length; i++)
+        for (let j = i + 1; j < cardBoxes.length; j++)
+          assert.ok(!intersect(cardBoxes[i], cardBoxes[j]), `card boxes overlap in ${f}`);
+      for (const c of cardBoxes)
+        for (const p of podFrames)
+          assert.ok(!intersect(c, p), `card box intersects pod frame in ${f}`);
+      checked++;
+    }
+    assert.ok(checked >= 12, "expected 12+ maps, got " + checked);
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+  });
+}
+
 /* ────────────────────────────── report ────────────────────────────────── */
 /* === T28 Fractal Sync: one command regenerates the whole brain === */
 {
@@ -760,17 +800,17 @@ check("T20b SVG preview uses only whitelisted tags", () => {
     "LinksDemo/A.md": { "LinksDemo/B.md": 1 },
     "LinksDemo/B.md": { "LinksDemo/A.md": 1 },
   };
-  const compiledIndex = new (async () => {}).constructor("ea", "utils", stripAll(INDEX_SRC));
-  const generated = new Map();
-  appS.plugins.plugins["obsidian-excalidraw-plugin"].scriptEngine.executeScript =
-    async (view, code, name, file, source) => {
-      assert.equal(name, "Fractal Index", "Sync must execute the real Index script");
-      const ea = createMockEA();
-      ea.targetView = view;
-      await compiledIndex(ea, { suggester: async () => "self+create" });
-      generated.set(view.file.path, ea);
-      return undefined;
-    };
+  // sync now executes levels DIRECTLY on the plugin's global EA (ea.setView),
+  // so the mock plugin exposes a full mock EA with a setView that re-points it
+  const pluginEA = createMockEA();
+  const scenes = new Map(); // per-view scenes (real EA scopes scenes per view)
+  pluginEA.setView = function (view) {
+    this.targetView = view;
+    if (!scenes.has(view.file.path)) scenes.set(view.file.path, new Map());
+    this._scene = scenes.get(view.file.path);
+    return view;
+  };
+  appS.plugins.plugins["obsidian-excalidraw-plugin"].ea = pluginEA;
 
   await checkAsync("T28 one Sync run generates every level of the brain", async () => {
     assert.ok(fs.existsSync(path.join(TMP, "LinksDemo/_index.excalidraw.md")), "LinksDemo root index missing");
@@ -778,23 +818,29 @@ check("T20b SVG preview uses only whitelisted tags", () => {
     eaSync.plugin = appS.plugins.plugins["obsidian-excalidraw-plugin"];
     const rootFile = appS.vault.getAbstractFileByPath("LinksDemo/_index.excalidraw.md");
     eaSync.targetView = { file: rootFile, getScene: () => ({}) };
-    const answers = ["self+create", true];
+    const titleOf = (folder) => {
+      const scene = scenes.get(folder + "/_index.excalidraw.md");
+      return scene && [...scene.values()].find((el) => el.customData?.kind === "title" && el.customData.key === "title|" + folder);
+    };
+    // the real MCP/tooling flow presets options via the global flag
+    globalThis.__fractalSyncOptions = { scope: "self+create", links: true };
     const utils = {
-      suggester: async () => answers.shift(),
+      suggester: async () => undefined,
       scriptFile: appS.vault.getAbstractFileByPath("Excalidraw/Scripts/Fractal Sync.md"),
     };
     const compiledSync = new (async () => {}).constructor("ea", "utils", stripAll(SYNC_SRC));
     await compiledSync(eaSync, utils);
     await new Promise((r) => setTimeout(r, 200));
 
-    const levels = ["LinksDemo/_index.excalidraw.md", "LinksDemo/sub/_index.excalidraw.md", "LinksDemo/sub2/_index.excalidraw.md"];
-    for (const p of levels) {
-      const ea = generated.get(p);
-      assert.ok(ea, "level not generated: " + p);
-      assert.ok(sceneElements(ea).some((el) => el.customData?.kind === "title"), "no title in " + p);
+    const folders = ["LinksDemo", "LinksDemo/sub", "LinksDemo/sub2", "LinksDemo/sub3", "LinksDemo/sub4"];
+    for (const f of folders) {
+      assert.ok(titleOf(f), "level not generated: " + f);
     }
-    const sub = generated.get("LinksDemo/sub/_index.excalidraw.md");
-    assert.ok(sceneElements(sub).some((el) => el.customData?.basename === "S.md"), "S.md card missing in sub");
+    const subScene = scenes.get("LinksDemo/sub/_index.excalidraw.md");
+    assert.ok(
+      subScene && [...subScene.values()].some((el) => el.customData?.basename === "S.md"),
+      "S.md card missing in sub"
+    );
     assert.strictEqual(globalThis.__fractalSyncOptions, null, "sync flag must be cleared");
     assert.ok(appS.notices.some((n) => n.includes("maps updated")), "summary notice missing");
   });
@@ -811,3 +857,4 @@ if (failed) {
   console.log("\nNotices captured during runs:");
   process.exit(1);
 }
+

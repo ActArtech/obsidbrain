@@ -49,6 +49,7 @@ const CFG = {
   indexName: "_index.excalidraw.md",
   maxItems: 500,
   maxLinks: 60,
+  layoutVersion: 2, // bump to re-layout existing maps with the new engine
   direction: "TD", // "TD" = top-down (hierarchy, default) | "LR" = left-right (journey)
   fileCard: { w: 230, h: 64, cols: 5, gx: 36, gy: 26, fontSize: 20, wrapAt: 26 },
   pod: { w: 380, h: 300, gapY: 60, gapX: 60, fontSize: 26 },
@@ -85,12 +86,20 @@ function basename(p) { const s = p.split("/").pop(); return s; }
    by content. Falls back to the deterministic grid when offline.
    After first placement, the adoption system preserves positions forever. */
 function loadElk() {
+  // elkjs bundled build exposes global `ELK` (not `elk`). Hard 8s cap so a
+  // blocked/stalled CDN can never hang a run — grid fallback takes over.
   return new Promise((resolve) => {
-    if (globalThis.elk) return resolve(globalThis.elk);
-    if (typeof document === "undefined" || !document.head) return resolve(null); // Node/test env
+    const done = (v) => resolve(v ? new v() : null);
+    const Ctor = globalThis.ELK || globalThis.elk;
+    if (Ctor) return done(Ctor);
+    if (typeof document === "undefined" || !document.head) return resolve(null);
+    const timer = setTimeout(() => resolve(null), 8000);
     const script = document.createElement("script");
-    script.onload = () => resolve(globalThis.elk || null);
-    script.onerror = () => resolve(null);
+    script.onload = () => {
+      clearTimeout(timer);
+      done(globalThis.ELK || globalThis.elk || null);
+    };
+    script.onerror = () => { clearTimeout(timer); resolve(null); };
     script.src = "https://cdn.jsdelivr.net/npm/elkjs@0.8.2/lib/elk.bundled.min.js";
     document.head.appendChild(script);
   });
@@ -150,7 +159,10 @@ async function computeElkLayout(files, subfolders, resolvedLinks, podContentCoun
       children,
       edges,
     };
-    const result = await elk.layout(graph);
+    const result = await Promise.race([
+      elk.layout(graph),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("elk layout timeout")), 15000)),
+    ]);
     const positions = new Map();
     for (const ch of result.children || []) {
       positions.set(ch.id, { x: ch.x, y: ch.y, width: ch.width, height: ch.height });
@@ -203,7 +215,7 @@ try {
     const folder = indexFile.parent || app.vault.getRoot();
 
     // when Fractal Sync drives this script, options arrive via window flag (no prompts)
-    const syncOpts = (typeof window !== "undefined" && globalThis.__fractalSyncOptions) || null;
+    const syncOpts = globalThis.__fractalSyncOptions || null;
     let scope, drawLinks, direction;
     if (syncOpts) {
       scope = syncOpts.scope;
@@ -289,18 +301,24 @@ try {
       const consumed = new Set();
       const hiWater = { pod: -1, file: -1 };
       const prevPos = new Map(); // key → {x,y}: MANUAL MOVES are adopted as truth
+      // layout versioning: when the layout engine improves, old maps re-layout
+      // once (positions from an older engine are not worth preserving)
+      const prevTitle = prevEls.find((el) => el.customData && el.customData.kind === "title");
+      const versionMatch = prevTitle && prevTitle.customData.layoutVersion === CFG.layoutVersion;
       for (const el of prevEls) {
         const cd = el.customData || {};
         const space = String(cd.key || "").split("|")[0];
         if (space in hiWater && typeof cd.slot === "number") {
           hiWater[space] = Math.max(hiWater[space], cd.slot);
         }
+        if (!versionMatch) continue; // stale engine: positions discarded
         if (cd.kind === "file" && typeof el.x === "number") prevPos.set(cd.key, { x: el.x, y: el.y });
         if (cd.kind === "frame" && cd.key && cd.key.startsWith("pod|") && cd.key.endsWith("|frame")) {
           const podPath = cd.key.slice(4, -6); // strip "pod|" and "|frame"
           prevPos.set("pod|" + podPath, { x: el.x, y: el.y });
         }
       }
+      if (!versionMatch) prevByKey.clear(); // cold start: fresh slots for everything
       const nextSlot = (space) => ++hiWater[space];
 
       /* adopt a slot: exact key match → basename-orphan match (same space) → fresh slot */
@@ -355,7 +373,7 @@ try {
       stamp(titleId, titleKey, folder.name, "title", 0);
       // store direction choice on the title element so regeneration preserves it
       const titleEl = ea.getElement(titleId);
-      if (titleEl) titleEl.customData = { ...titleEl.customData, direction };
+      if (titleEl) titleEl.customData = { ...titleEl.customData, direction, layoutVersion: CFG.layoutVersion };
 
       /* breadcrumb up to parent index when it exists */
       const parentIndexPath = isRootFolder
