@@ -36,7 +36,7 @@ if (!fs.existsSync(vault)) { console.error("vault not found: " + vault); process
 /* ── vault scan ── */
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name.startsWith(".") || e.name.startsWith("_connections")) continue;
+    if (e.name.startsWith(".") || e.name.startsWith("_connections") || e.name === "Excalidraw") continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) { out.push({ path: p, dir: true }); walk(p, out); }
     else out.push({ path: p, dir: false });
@@ -87,8 +87,10 @@ const indexPaths = allFiles.filter((f) => path.basename(f.rel) === CFG.indexName
 const brains = [];
 for (const ip of indexPaths) {
   const dir = path.posix.dirname(ip);
-  const parentDir = dir.includes("/") ? path.posix.dirname(dir) : "";
-  if (!indexPaths.includes((parentDir ? parentDir + "/" : "") + CFG.indexName)) brains.push(dir === "." ? "" : dir);
+  if (dir === ".") { brains.push(""); continue; } // a root index is always a brain (parent check would compare it against itself)
+  const parentDir = path.posix.dirname(dir);
+  const parentPath = (parentDir && parentDir !== "." ? parentDir + "/" : "") + CFG.indexName;
+  if (!indexPaths.includes(parentPath)) brains.push(dir);
 }
 const targets = onlyBrain ? brains.filter((b) => b === onlyBrain) : brains;
 if (!targets.length) { console.error("no brains found"); process.exit(1); }
