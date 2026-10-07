@@ -1,11 +1,11 @@
 {
   "name": "fractal-index",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Fractal Index ea-script for Obsidian Excalidraw: folder brain-maps with static node positions and infinite drill-down. Includes zero-dependency test harness.",
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "node test/run-tests.mjs"
+    "test": "node test/run-tests.mjs && node test/graph-tests.mjs"
   },
   "engines": {
     "node": ">=20"

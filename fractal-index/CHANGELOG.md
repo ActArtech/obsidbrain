@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.9.0 - 2026-10-07
+
+- NEW: **nested systems, properly**. Every content folder is a `System` node;
+  containment is typed `CONTAINS` edges, so systems hold sub-systems to any
+  depth. `systemOf` / `ancestors` / `descendants` walk the tree;
+  `systemStats` rolls up size, density, bridges, and keystone notes;
+  `inducedSubgraph` isolates a system for sub-analysis.
+- NEW: `detectCommunitiesHierarchical` — emergent systems within systems
+  (recursive community detection, dendrogram labeled by keystone note).
+- NEW: system-level connection notes — from/to may name folders, so the
+  in-between system works between systems.
+- NEW: `examples/nested-systems.mjs` report; MCP tool `graph_analysis`
+  (offline with explicit vault, or via the connected Obsidian).
+- FIXED: graph extraction now reads connection notes from EVERY level's
+  `_connections/` folder (was brain root only — most notes were invisible).
+- FIXED: connection-note `from`/`to` parse `[[wikilink]]`, alias, `.md`,
+  and trailing-slash forms; typed edges upgrade inferred wikilink edges
+  without duplicating adjacency; `.excalidraw.md` drawings are not nodes.
+- Link algorithms exclude `CONTAINS` edges by default — hierarchy and
+  connectivity stay separate dimensions (opt in with `excludeTypes: []`).
+- Tests: +20 graph checks (model, extraction, hierarchy, dendrogram,
+  roll-ups), +1 MCP check (offline graph_analysis).
+
 ## 1.8.0 - 2026-10-07
 
 - NEW: **connection notes - the in-between system**. Every significant

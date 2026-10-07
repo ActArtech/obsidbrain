@@ -5,6 +5,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import url from "node:url";
+import fs from "node:fs";
 import readline from "node:readline";
 import assert from "node:assert/strict";
 
@@ -75,6 +76,38 @@ await check("M4 unknown tool -> structured error, not a crash", async () => {
   const ping = await srv.send("ping", {});
   assert.ok(ping.result);
 });
+
+await check("M5 graph_analysis works offline with explicit vault", async () => {
+  // fixture: a brain with nested systems, links, and a connection note
+  const fixture = path.join(HERE, "tmp-graph-fixture");
+  fs.rmSync(fixture, { recursive: true, force: true });
+  const write = (rel, body) => {
+    const abs = path.join(fixture, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, body);
+  };
+  write("Demo/Fields/Topics/Emergence.md", "# Emergence\n[[Networks]]\n");
+  write("Demo/Fields/Topics/Networks.md", "# Networks\n[[Emergence]]\n");
+  write("Demo/Inbox/Spark.md", "# Spark\n");
+  write("Demo/Fields/Topics/_connections/Emergence--Networks.md",
+    '---\nfrom: "[[Demo/Fields/Topics/Emergence]]"\nto: "[[Networks]]"\nrelation: resonates\nweight: 2\n---\n\nLocal rules, global order.\n');
+  try {
+    const r = await srv.send("tools/call", {
+      name: "graph_analysis",
+      arguments: { vault: fixture, brain: "Demo" },
+    });
+    assert.ok(!r.result.isError, "tool should succeed offline: " + (r.result.content?.[0]?.text || ""));
+    const data = JSON.parse(r.result.content[0].text);
+    assert.equal(data.brain, "Demo");
+    assert.ok(data.systems.some((s) => s.system === "Demo/Fields" && s.subSystems === 1));
+    assert.ok(data.edgeTypes.RESONATES >= 1, "typed edge from connection note");
+    assert.ok(data.edgeTypes.CONTAINS >= 4, "containment edges present");
+    assert.ok(data.emergentSystems.size >= 3, "dendrogram covers all notes");
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
 
 srv.kill();
 await new Promise((r) => setTimeout(r, 200));

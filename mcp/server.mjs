@@ -26,7 +26,8 @@ function err(id, code, message) { process.stdout.write(JSON.stringify({ jsonrpc:
 async function callTool(name, args) {
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) throw new Error("unknown tool: " + name + " (available: " + TOOLS.map((t) => t.name).join(", ") + ")");
-  await cdp.ensure();
+  // tools may opt out of the Obsidian connection per-call (offline mode)
+  if (!tool.skipConnect || !tool.skipConnect(args || {})) await cdp.ensure();
   return tool.run(cdp, args || {});
 }
 

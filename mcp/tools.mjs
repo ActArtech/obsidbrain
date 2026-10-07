@@ -166,6 +166,8 @@ export const TOOLS = [
       required: ["rootIndexPath"],
     },
     run: async (cdp, args) => {
+      const busy = await cdp.evalIn('globalThis.__fractalSyncRunning === true').catch(() => false);
+      if (busy) return { error: 'a sync is already running inside Obsidian — retry when it finishes' };
       const root = args.rootIndexPath;
       await cdp.evalIn(`(async () => {
         const plugin = app.plugins?.plugins?.["obsidian-excalidraw-plugin"];
@@ -181,7 +183,7 @@ export const TOOLS = [
         globalThis.__syncTrace = [];
         try {
           const fn = new (async () => {}).constructor("ea", "utils", code.replace(/^---\\n[\\s\\S]*?\\n---\\n/, ""));
-          await fn({ targetView: view, plugin: { scriptEngine: plugin.scriptEngine } },
+          await fn({ targetView: view, plugin: { scriptEngine: plugin.scriptEngine, ea: plugin.ea } },
                    { suggester: async () => undefined, scriptFile: app.vault.getAbstractFileByPath("Excalidraw/Scripts/Fractal Sync.md") });
         } catch (e) {
           globalThis.__fractalSyncOptions = null;
@@ -276,6 +278,68 @@ export const TOOLS = [
         p.on("close", (code) => (code === 0 ? resolve(s) : reject(new Error("cli failed: " + s.slice(0, 400)))));
       });
       return { ok: true, output: stdout.trim().split("\n").slice(0, 8) };
+    },
+  },
+  {
+    name: "graph_analysis",
+    description:
+      "Nested-systems analysis of a brain: builds the property graph (folders = System nodes with CONTAINS edges; wikilinks + connection notes = typed link edges), then reports per-system roll-ups (size, density, bridges), a hierarchical community dendrogram (emergent systems within systems), top notes by PageRank, and system-to-system relationships. Works offline with an explicit vault path, or against the connected Obsidian vault.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        brain: { type: "string", description: "brain root folder, e.g. Garden (empty = whole vault)" },
+        vault: { type: "string", description: "absolute vault path; defaults to the connected Obsidian vault" },
+        depth: { type: "number", description: "dendrogram depth (default 2)" },
+      },
+    },
+    skipConnect: (args) => !!args.vault, // explicit vault = no Obsidian needed
+    run: async (cdp, args) => {
+      const vaultPath = args.vault || (await cdp.evalIn("app.vault.adapter.getBasePath()"));
+      const { extractGraph } = await import(url.pathToFileURL(path.join(REPO, "fractal-index", "lib", "graph.mjs")).href);
+      const brain = args.brain || "";
+      const g = extractGraph(vaultPath, brain);
+      const clip = (s) => (typeof s === "string" && s.length > 60 ? s.slice(0, 57) + "…" : s);
+      const dendro = (n) => ({
+        level: n.level,
+        label: clip(n.label),
+        size: n.nodes.length,
+        children: n.children.map(dendro),
+      });
+      const edgeTypes = {};
+      for (const [, e] of g.edges) edgeTypes[e.type] = (edgeTypes[e.type] || 0) + 1;
+      const systems = g.nodesByLabel("System")
+        .sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b))
+        .map((id) => {
+          const st = g.systemStats(id, { top: 3 });
+          return {
+            system: st.id,
+            notes: st.notes,
+            subSystems: st.subSystems,
+            internalEdges: st.internalEdges,
+            bridgesOut: st.externalEdges,
+            density: st.density,
+            topNotes: st.topNotes.map((t) => t.basename),
+            bridgesTo: st.bridges.map((b) => b.basename),
+          };
+        });
+      const sysRels = g
+        .match({ sourceLabel: "System", targetLabel: "System" })
+        .filter((r) => r.r.type !== "CONTAINS")
+        .map((r) => ({ from: r.a.properties.name || r.a.id, relation: r.r.type, to: r.b.properties.name || r.b.id }));
+      return {
+        vault: vaultPath,
+        brain: brain || "(whole vault)",
+        nodes: g.nodes.size,
+        edges: g.edges.size,
+        edgeTypes,
+        systems,
+        systemRelationships: sysRels,
+        emergentSystems: dendro(g.detectCommunitiesHierarchical({ depth: args.depth ?? 2 })),
+        topNotes: g
+          .pageRank()
+          .slice(0, 8)
+          .map((r) => ({ note: (g.node(r.id)?.properties.basename || r.id), score: r.score })),
+      };
     },
   },
 ];
