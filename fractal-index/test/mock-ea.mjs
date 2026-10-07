@@ -122,6 +122,16 @@ export function createMockEA() {
       ea._buffer.set(el.id, el);
       return el.id;
     },
+    async addImage(topX, topY, imageFile) {
+      // mirrors real EA: async, image element with fileId; the caller
+      // resizes it and sets link/customData itself
+      const el = ea._base("image");
+      el.x = topX; el.y = topY;
+      el.width = 400; el.height = 300;
+      el.fileId = "mock-" + el.id;
+      ea._buffer.set(el.id, el);
+      return el.id;
+    },
     addArrow(points, formatting = {}) {
       const el = ea._base("arrow");
       // real EA convention: points are RELATIVE to x/y (which sit at the first point)

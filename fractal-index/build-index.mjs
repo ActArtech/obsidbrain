@@ -36,7 +36,7 @@ if (!fs.existsSync(vault)) { console.error("vault not found: " + vault); process
 /* ── vault scan ── */
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name.startsWith(".")) continue;
+    if (e.name.startsWith(".") || e.name.startsWith("_connections")) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) { out.push({ path: p, dir: true }); walk(p, out); }
     else out.push({ path: p, dir: false });
@@ -172,6 +172,7 @@ function el(type, seed, x, y, w, h, extra = {}) {
     seed: 1, version: 1, versionNonce: 1, updated: 1, isDeleted: false,
     boundElements: [], groupIds: [], frameId: null, link: extra.link ?? null, locked: false,
     ...(type === "arrow" ? { points: extra.points, startArrowhead: extra.startArrowhead ?? null, endArrowhead: extra.endArrowhead ?? "arrow" } : {}),
+    ...(type === "image" ? { fileId: extra.fileId ?? null, scale: [1, 1], crop: null } : {}),
     ...(type === "embeddable" ? { scale: [1, 1] } : {}),
     ...(type === "text" ? { text: extra.text || "", fontSize: extra.fontSize || 20, fontFamily: 2, textAlign: "left", verticalAlign: "top", containerId: null, originalText: extra.text || "", lineHeight: 1.3, autoResize: true } : {}),
     ...(seed.startsWith("podframe|") ? { name: " " } : {}),
@@ -327,6 +328,7 @@ function buildFolderIndex(folderRel) {
         `mutual: ${e.mutual}`,
         `weight: ${e.weight}`,
         `brain: "${folderRel || "(root)"}"`,
+        "exclusions: true",
         "---",
         "",
         `# ${path.basename(e.a)} ${e.mutual ? "⇄" : "→"} ${path.basename(e.b)}`,
@@ -388,7 +390,7 @@ function buildFolderIndex(folderRel) {
 }
 
 /* ── serialize ── */
-function toMD(elements) {
+function toMD(elements, embeddedFiles = []) {
   const full = elements.map((e) => ({
     id: e.id, type: e.type,
     x: Math.round(e.x * 100) / 100, y: Math.round(e.y * 100) / 100,
@@ -405,28 +407,56 @@ function toMD(elements) {
       originalText: e.text, lineHeight: 1.3, autoResize: true,
     } : {}),
     ...(e.type === "arrow" ? { points: e.points, startArrowhead: e.startArrowhead ?? null, endArrowhead: e.endArrowhead ?? "arrow" } : {}),
+    ...(e.type === "image" ? { fileId: e.fileId || null, scale: e.scale || [1, 1], crop: null } : {}),
     ...(e.type === "embeddable" ? { scale: e.scale || [1, 1] } : {}),
     ...(e.customData ? { customData: e.customData } : {}),
   }));
   const textSection = full.filter((e) => e.type === "text").map((t) => `${t.text.split("\n").join(" ")} ^${t.id}`).join("\n");
+  // pod previews: image elements resolve their fileId through the plugin's
+  // `## Embedded Files` section (fileId: [[path]]) — the plugin rasterizes
+  // the referenced drawing itself (theme-aware, refreshes on change). A
+  // files map in the scene JSON is ignored for md-parsed drawings.
+  const embeddedSection = embeddedFiles.length
+    ? "## Embedded Files\n" + embeddedFiles.map((f) => `${f.fileId}: ${f.ref}\n`).join("\n")
+    : "";
   const scene = { type: "excalidraw", version: 2, source: "fractal-index build-index v3", elements: full, appState: { grid: null, viewBackgroundColor: "#ffffff" }, files: {} };
   return ["---", "excalidraw-plugin: parsed", "tags: [excalidraw]", "---", "",
     "# Excalidraw Data", "## Text Elements", textSection, "",
+    embeddedSection,
     "## Drawing", "```json", JSON.stringify(scene, null, 2), "```", ""].join("\n");
 }
 
-/* ── rebuild: top-down so embeds/breadcrumbs reference existing files ── */
+/* ── rebuild: build all scenes in memory, attach pod previews, then write ── */
 let generated = 0;
 for (const brain of targets) {
   const prefix = brain ? brain + "/" : "";
   const folders = [brain, ...all.filter((e) => e.dir && (brain ? e.rel.startsWith(prefix) : true)).map((e) => e.rel)]
     .filter((f, i, a) => a.indexOf(f) === i)
     .sort((a, b) => a.split("/").length - b.split("/").length);
+
+  // pass 1: build every level in memory (children included — previews of
+  // sub-levels come from the same run, no re-read needed)
+  const scenes = new Map(); // folderRel → { elements, height }
   for (const folder of folders) {
-    const { elements, height } = buildFolderIndex(folder);
-    fs.writeFileSync(path.join(vault, folder, CFG.indexName), toMD(elements), "utf8");
-    generated++;
-    console.log("  ✓", (folder || "(vault root)") + "/" + CFG.indexName, "—", elements.length, "elements,", Math.round(height), "px tall");
+    scenes.set(folder, buildFolderIndex(folder));
   }
+
+  // pass 2: pod previews — image elements resolve their dataURL through the
+  // plugin's `## Embedded Files` section; emit one entry per image embed
+  const stats = [];
+  for (const [folder, s] of scenes) {
+    const embeddedFiles = [];
+    for (const e of s.elements) {
+      if (e.type !== "image" || e.fileId) continue;
+      const m = (e.link || "").match(/^\[\[([^\]|]+)/);
+      if (!m) continue;
+      e.fileId = e.id;
+      embeddedFiles.push({ fileId: e.id, ref: e.link });
+    }
+    fs.writeFileSync(path.join(vault, folder, CFG.indexName), toMD(s.elements, embeddedFiles), "utf8");
+    generated++;
+    stats.push(`  ✓ ${(folder || "(vault root)")}/` + CFG.indexName + " — " + s.elements.length + " elements, " + Math.round(s.height) + "px tall, " + embeddedFiles.length + " previews");
+  }
+  console.log(stats.join("\n"));
 }
 console.log(`\nrebuilt ${generated} index drawings (layout v${CFG.layoutVersion}: component-based, zero-overlap solver)`);

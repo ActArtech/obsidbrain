@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.9.1 - 2026-10-07
+
+- FIXED: pod previews render as real mini-maps of the sub-index drawing.
+  Pod embeds were `embeddable` elements — the plugin hosts those in a
+  detached workspace leaf that never finishes loading for .excalidraw.md
+  targets, so every preview stayed a white box. Previews are now image
+  elements transcluding the sub-index drawing (EA: addImage; on-disk
+  builds: an `## Embedded Files` section the plugin rasterizes natively —
+  theme-aware, refreshes when the child map changes).
+- Pod previews keep the dive interaction (click pod → dive) and position
+  adoption unchanged; layout version unchanged (no re-layout).
+
 ## 1.9.0 - 2026-10-07
 
 - NEW: **nested systems, properly**. Every content folder is a `System` node;

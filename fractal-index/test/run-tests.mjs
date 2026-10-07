@@ -115,6 +115,10 @@ check("T1d every pod embeds its sub-index drawing (fractal preview)", () => {
   assert.equal(embeds.length, 3);
   assert.ok(embeds.every((el) => /^\[\[Brain\/.+\/_index\.excalidraw\.md\]\]$/.test(el.link || "")));
 });
+check("T1d2 pod embeds are image transclusions, not embeddable iframes", () => {
+  assert.ok(embeds.every((el) => el.type === "image" && el.fileId),
+    "pod preview must be an image element with fileId (embeddable hangs white)");
+});
 check("T1e file cards carry wiki links to their files", () => {
   const readme = fileCards.find((el) => el.customData.basename === "README.md");
   assert.equal(readme.link, "[[Brain/README.md]]");
@@ -785,6 +789,13 @@ check("T20b SVG preview uses only whitelisted tags", () => {
       const md = fs.readFileSync(path.join(tmpVault, String(f)), "utf8");
       const scene = JSON.parse(md.match(/```json\n([\s\S]*?)\n```/)[1]);
       const els = scene.elements.filter((e) => !e.isDeleted);
+      // pod previews: image transclusions resolve via the Embedded Files section
+      const efSection = md.match(/## Embedded Files\n([\s\S]*?)\n## Drawing/);
+      for (const p of els.filter((e) => e.type === "image" && e.customData?.kind === "embed")) {
+        assert.ok(p.fileId, "preview without fileId in " + f);
+        assert.ok(efSection && efSection[1].includes(p.fileId + ": [["),
+          "embedded-files entry missing for " + p.fileId + " in " + f);
+      }
       const podFrames = els.filter((e) => e.customData?.kind === "frame");
       const cardBoxes = els.filter((e) => e.customData?.kind === "file-box");
       for (let i = 0; i < podFrames.length; i++)

@@ -115,11 +115,13 @@ export function Pod({ name, childCount, embedPath = null, hint = null, chip = "â
         seed: "podlabel|" + name,
         bounds: { x: x + PAD, y: boxY + 10, w: lm.w, h: lm.h },
       });
-      // embed or hint
+      // embed or hint â€” the pod preview is an image element transcluding the
+      // sub-index drawing (embeddable elements hang mounting a nested view
+      // and render as white boxes); build-index attaches the SVG dataURL
       if (embedTarget) {
         els.push({
-          make: (seed) => el("embeddable", seed, x + 20, boxY + PAD + LABEL_H + 8, w - 40, EMBED_H, {
-            strokeColor: "#8b5cf6", link: wl(embedTarget), scale: [1, 1],
+          make: (seed) => el("image", seed, x + 20, boxY + PAD + LABEL_H + 8, w - 40, EMBED_H, {
+            strokeColor: "#8b5cf6", link: wl(embedTarget),
           }),
           seed: "podembed|" + name,
         });
@@ -183,6 +185,7 @@ function el(type, seed, x, y, w, h, extra = {}) {
       originalText: extra.text || "", lineHeight: 1.3, autoResize: true,
     } : {}),
     ...(type === "arrow" ? { points: extra.points || [[0, 0], [0, 0]], startArrowhead: extra.startArrowhead ?? null, endArrowhead: extra.endArrowhead ?? "arrow" } : {}),
+    ...(type === "image" ? { fileId: extra.fileId ?? null, scale: [1, 1], crop: null } : {}),
     ...(type === "embeddable" ? { scale: [1, 1] } : {}),
     ...(type === "rectangle" && extra.name !== undefined ? {} : {}),
     ...(/^podframe/.test(seed) ? { name: " " } : {}),
