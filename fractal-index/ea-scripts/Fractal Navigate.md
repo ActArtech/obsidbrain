@@ -334,6 +334,35 @@ if (__fractalPlugin && __fractalPlugin.addCommand) {
             : c.replace(/^---\n/, "---\nexclusions: true\n");
         });
       }
+      // make the flip visible NOW: ExcaliBrain caches per-page ontology
+      // links, so frontmatter alone can leave the graph stale for minutes.
+      // Nudge dataview, then rebuild the brain plugin itself (verified to
+      // always render the true state; ~3s, only on this command).
+      try {
+        const dvIndex = app.plugins.plugins.dataview?.index;
+        if (dvIndex?.reload) await dvIndex.reload(...files.map((f) => f.path));
+      } catch (e) { console.error("Fractal toggle: dataview reload failed", e); }
+      await new Promise((r) => setTimeout(r, 1200));
+      try {
+        const brain = app.plugins.plugins.excalibrain;
+        if (brain) {
+          const brainPath = brain.settings?.excalibrainFilepath || "excalibrain.md";
+          const brainLeaves = app.workspace.getLeavesOfType("excalidraw")
+            .filter((l) => l.view?.file?.path === brainPath);
+          const wasOpen = brainLeaves.length > 0;
+          // detach BEFORE disable: open views re-save their in-memory scene
+          // over the file, and disable alone can leave orphan panes behind
+          for (const l of brainLeaves) l.detach();
+          await app.plugins.disablePlugin("excalibrain");
+          await app.plugins.enablePlugin("excalibrain");
+          if (wasOpen) {
+            // reopen in a NEW split — openLinkText would reuse (and replace)
+            // whatever leaf is active, eating the note the user was reading
+            const leaf = app.workspace.getLeaf("split");
+            await leaf.openFile(app.vault.getAbstractFileByPath(brainPath));
+          }
+        }
+      } catch (e) { console.error("Fractal toggle: brain rebuild failed", e); }
       new Notice("Connection notes " + action + " (" + files.length + " notes).");
     },
   });
