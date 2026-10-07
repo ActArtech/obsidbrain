@@ -2,6 +2,13 @@
 
 ## 1.9.1 - 2026-10-07
 
+- ExcaliBrain in-between wiring completed and verified live: ontology fields
+  (from -> Parents, to -> Children, exclusions -> Hidden),
+  autoOpenCentralDocument, and Navigate as startup script. Navigate's toggle
+  command now registers reliably in the script sandbox (ea.plugin) and shows
+  by REMOVING the exclusions field (an `exclusions: false` line can still
+  count as hidden in strict frontmatter checks).
+
 - FIXED: pod previews render as real mini-maps of the sub-index drawing.
   Pod embeds were `embeddable` elements — the plugin hosts those in a
   detached workspace leaf that never finishes loading for .excalidraw.md

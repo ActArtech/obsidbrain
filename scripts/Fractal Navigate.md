@@ -299,4 +299,43 @@ hookTarget.onSceneChangeHook = {
     );
   },
 };
+
+/* ── toggle: show/hide connection notes in the ExcaliBrain graph ──
+   Flips `exclusions` on all _connections/*.md notes. When excluded,
+   ExcaliBrain hides them from the graph (clean view). When included,
+   they appear as intermediate nodes (A → note → B chains). */
+
+// register as an Obsidian command so the user can toggle from the palette
+// (the script sandbox has no `plugin` global — reach it through ea.plugin)
+const __fractalPlugin = (typeof plugin !== "undefined" && plugin) || (ea && ea.plugin);
+if (__fractalPlugin && __fractalPlugin.addCommand) {
+  __fractalPlugin.addCommand({
+    id: "fractal-toggle-connections",
+    name: "Fractal: Toggle connection notes in brain",
+    callback: async () => {
+      const files = app.vault.getFiles().filter(
+        (f) => f.path.includes("_connections/") && f.extension === "md"
+      );
+      if (!files.length) { new Notice("No connection notes found."); return; }
+      // read the current state from the first note
+      const first = await app.vault.read(files[0]);
+      const currentlyExcluded = /exclusions:\s*true/.test(first);
+      const action = currentlyExcluded ? "shown" : "hidden";
+      for (const f of files) {
+        // show = REMOVE the field entirely (an `exclusions: false` line may
+        // still count as present-and-hidden in strict frontmatter checks);
+        // hide = the field set true
+        await app.vault.process(f, (c) => {
+          if (currentlyExcluded) {
+            return c.replace(/^exclusions:\s*true\s*\n/m, "");
+          }
+          return /^exclusions:/m.test(c)
+            ? c.replace(/^exclusions:.*$/m, "exclusions: true")
+            : c.replace(/^---\n/, "---\nexclusions: true\n");
+        });
+      }
+      new Notice("Connection notes " + action + " (" + files.length + " notes).");
+    },
+  });
+}
 new Notice("Fractal Navigate active — click a pod to dive, click again to surface.");

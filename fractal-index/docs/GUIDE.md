@@ -108,6 +108,26 @@ Install once: *Settings → Excalidraw → Scripts → Startup script* →
 | **Ctrl/Cmd**+click | native behavior escape hatch |
 | drag a card | its arrows follow live (custom binding engine) |
 
+### The connection-notes toggle
+
+Navigate also registers the palette command **"Fractal: Toggle connection
+notes in brain"**. Connection notes (the `_connections/*.md` files behind
+every arrow) are **hidden from ExcaliBrain by default** and appear as real
+in-between nodes when you toggle them on.
+
+One-time ExcaliBrain setup (Settings → ExcaliBrain → Hierarchy names) that
+makes the in-between rendering work:
+
+| ExcaliBrain role | add field | effect on a connection note |
+|---|---|---|
+| Parents | `from` | the source note hangs **above** the connection note |
+| Children | `to` | the target note hangs **below** it — the A → note → B chain |
+| Hidden | `exclusions` | notes carrying `exclusions: true` stay out of the graph (the default; the toggle flips this) |
+
+Also enable *Auto open central document* so the brain follows whatever note
+you're reading. Verified end to end: with the toggle on, Spaced Repetition →
+*connection note* → Zettelkasten renders as a vertical ontology chain.
+
 ## 7. FAQ & limits
 
 - **Why don't arrows track moves without Navigate?** The Obsidian Excalidraw
