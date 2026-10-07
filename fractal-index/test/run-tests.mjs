@@ -343,14 +343,16 @@ check("T5c SVG preview contains the expected labels", () => {
   // T24: every pod carries the recursion motif and the dive affordance
   const els24 = brainEls2 !== undefined ? brainEls2 : sceneElements(ea1);
   const vis = sceneElements(ea1).concat(brainEls2 || []);
-  check("T24 pods have concentric motifs and dive-hint chips", () => {
+  check("T24 pods have concentric motifs; one map legend, no per-pod chips", () => {
     const pods = vis.filter((el) => el.customData?.kind === "pod-label");
     const motifs = vis.filter((el) => el.customData?.kind === "pod-motif");
     const dives = vis.filter((el) => el.customData?.kind === "dive-hint");
+    const legends = vis.filter((el) => el.customData?.kind === "legend");
     assert.ok(pods.length >= 6, "expected pods, got " + pods.length);
     assert.equal(motifs.length, pods.length, "one motif per pod");
-    assert.equal(dives.length, pods.length, "one dive chip per pod");
-    assert.ok(dives.every((d) => d.text.includes("dive")), "chip text");
+    assert.equal(dives.length, 0, "per-pod chips removed (map legend replaces them)");
+    assert.ok(legends.length >= 1, "one legend per map");
+    assert.ok(legends[0].text.includes("dive"), "legend mentions diving");
     assert.ok(motifs.every((m) => m.strokeStyle === "dashed"), "motif dashed");
   });
 

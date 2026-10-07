@@ -81,12 +81,12 @@ test("wikilink edges resolve: full path, bare basename, alias, .md suffix", () =
 
 /* ── extraction: typed relationships from connection notes ── */
 test("nested _connections dirs produce typed edges", () => {
-  const e = g.edge("Brain/Fields/Topics/Emergence.md=>Brain/Fields/Topics/Networks.md");
+  const e = g.edgesByType("RESONATES").find((e) => e.properties.note?.endsWith("Emergence--Networks.md"));
   assert.ok(e, "edge exists");
-  assert.equal(e.type, "RESONATES");
+  assert.equal(e.start, "Brain/Fields/Topics/Emergence.md");
+  assert.equal(e.end, "Brain/Fields/Topics/Networks.md");
   assert.equal(e.properties.weight, 2);
   assert.equal(e.properties.mutual, true);
-  assert.ok(e.properties.note.endsWith("Emergence--Networks.md"));
 });
 test("a connection note upgrades an inferred wikilink edge (no duplicate)", () => {
   const dupes = g.neighbors("Brain/Fields/Topics/Emergence.md", { direction: "out" })
@@ -95,9 +95,11 @@ test("a connection note upgrades an inferred wikilink edge (no duplicate)", () =
   assert.equal(g.edge(dupes[0].edgeId).type, "RESONATES");
 });
 test("system-to-system connection notes link System nodes", () => {
-  const e = g.edge("Brain/Fields=>Brain/Inbox");
+  const e = g.edgesByType("NOURISHES")[0];
   assert.ok(e, "edge exists");
   assert.equal(e.type, "NOURISHES");
+  assert.equal(e.start, "Brain/Fields");
+  assert.equal(e.end, "Brain/Inbox");
   assert.ok(g.node("Brain/Fields").labels.has("System"));
   assert.ok(g.node("Brain/Inbox").labels.has("System"));
 });
@@ -121,11 +123,12 @@ test("systemStats: internal vs bridging edges and density", () => {
   const st = g.systemStats("Brain/Fields");
   assert.equal(st.notes, 4); // 3 topics + Systems Thinking
   assert.equal(st.subSystems, 1);
-  // internal: ST<->Emergence (2), Emergence<->Networks (2)
-  assert.equal(st.internalEdges, 4);
+  // internal: ST<->Emergence (2) + Emergence<->Networks via the connection
+  // note (1 — the inferred reverse wikilink is suppressed for covered pairs)
+  assert.equal(st.internalEdges, 3);
   // external: the Fields->Inbox system-level connection note
   assert.equal(st.externalEdges, 1);
-  assert.equal(st.density, Number((4 / (4 * 3)).toFixed(4)));
+  assert.equal(st.density, Number((3 / (4 * 3)).toFixed(4)));
   assert.ok(st.topNotes[0].basename.match(/Emergence|Networks/));
 });
 test("systemStats bridges name what leaves the system", () => {
@@ -153,7 +156,7 @@ test("inducedSubgraph keeps only internal link edges by default", () => {
   ]);
   assert.equal(sub.nodes.size, 3);
   assert.equal([...sub.edges.values()].filter((e) => e.type === "CONTAINS").length, 0);
-  assert.equal(sub.edges.size, 2); // Emergence->Networks (resonates) + Networks->Emergence (peer)
+  assert.equal(sub.edges.size, 1); // Emergence->Networks (resonates note; reverse wikilink suppressed)
   const withH = g.inducedSubgraph(
     ["Brain/Fields", "Brain/Fields/Topics"], { includeHierarchy: true });
   assert.ok([...withH.edges.values()].some((e) => e.type === "CONTAINS"));
@@ -200,10 +203,27 @@ test("toJSON / fromJSON round-trips labels and edge types", () => {
   assert.equal(copy.nodes.size, g.nodes.size);
   assert.equal(copy.edges.size, g.edges.size);
   assert.ok(copy.node("Brain").labels.has("System"));
-  assert.equal(copy.edge("Brain/Fields=>Brain/Inbox").type, "NOURISHES");
+  assert.equal(copy.edgesByType("NOURISHES").length, 1);
 });
 
 /* ── model-level unit tests ── */
+test("multiple relationships between the same pair coexist as separate edges", () => {
+  // second connection note for the Emergence/Networks pair (different aspect)
+  write("Brain/Fields/Topics/_connections/Emergence--Networks--2.md",
+    '---\ntype: connection\nfrom: "[[Brain/Fields/Topics/Emergence.md]]"\nto: "[[Networks]]"\nrelation: nourishes\nweight: 1\n---\n\nNetwork diagrams feed the emergence examples.\n');
+  const g2 = extractGraph(VAULT, "Brain");
+  const pairEdges = [...g2.edges.values()].filter(
+    (e) => e.type !== "CONTAINS" &&
+      ((e.start === "Brain/Fields/Topics/Emergence.md" && e.end === "Brain/Fields/Topics/Networks.md") ||
+       (e.start === "Brain/Fields/Topics/Networks.md" && e.end === "Brain/Fields/Topics/Emergence.md")));
+  assert.equal(pairEdges.length, 2, "two notes = two relationships");
+  assert.deepEqual(pairEdges.map((e) => e.type).sort(), ["NOURISHES", "RESONATES"]);
+  // the wikilink between the pair is NOT duplicated as an inferred edge
+  assert.ok(pairEdges.every((e) => !e.properties.inferred), "inferred edge suppressed for covered pairs");
+  assert.equal(g2.neighbors("Brain/Fields/Topics/Emergence.md", { excludeTypes: ["CONTAINS"] })
+    .filter((n) => n.node.endsWith("Networks.md")).length, 2);
+});
+
 test("Graph: addEdge upsert does not duplicate adjacency", () => {
   const h = new Graph();
   h.addEdge("e1", "PEER", "a", "b");

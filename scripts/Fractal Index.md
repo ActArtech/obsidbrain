@@ -398,6 +398,15 @@ try {
       const podCols = Math.max(1, Math.min(podCount, Math.ceil(Math.sqrt(podCount))));
       const podRows = Math.ceil(podCount / podCols);
       const podsBottom = CFG.gridY0 + podRows * (CFG.pod.h + CFG.pod.gapY) - CFG.pod.gapY;
+
+      /* one legend for the whole map (replaces a dive chip on every pod) */
+      if (podCount) {
+        ea.setStyle({ fontFamily: 2, fontSize: 15, strokeColor: "#8a8f98" });
+        const legendKey = "legend|" + folder.path;
+        const legendId = sid(legendKey);
+        ea.addText(0, 100, "click a pod to dive · click again to surface · every arrow opens its connection note", {}, legendId);
+        stamp(legendId, legendKey, "legend", "legend", 0);
+      }
       const fileCols = Math.max(CFG.fileCard.cols, podCols);
       const slotPos = {
         pod: direction === "LR"
@@ -473,21 +482,12 @@ try {
           ea.addText(x + CFG.embed.marginX, y + CFG.embed.topOffset, "(no _index yet — run Fractal Index inside\nthis subfolder to grow the fractal)", { wrapAt: 42 }, hintId);
           stamp(hintId, key + "|hint", sf.name, "hint", slot);
         }
-
-        ea.setStyle({ fontFamily: 2, fontSize: 14, strokeColor: CFG.colors.link });
-        const diveId = sid(key + "|dive");
-        ea.addText(
-          x + CFG.pod.w - 150, y - 24,
-          "⤢ click pod to dive",
-          { textAlign: "right" },
-          diveId
-        );
-        stamp(diveId, key + "|dive", sf.name, "dive-hint", slot);
+        // per-pod dive chips removed — the map-level legend covers it
 
         try {
           if (typeof ea.addToGroup === "function") {
             // move any pod element → the whole pod moves with it
-            ea.addToGroup([fid, motifId, labelId, embId || hintId, diveId].filter(Boolean));
+            ea.addToGroup([fid, motifId, labelId, embId || hintId].filter(Boolean));
           }
         } catch (e) { /* grouping is a convenience; never fail generation for it */ }
       }
@@ -631,44 +631,81 @@ try {
         const srcIndex = new Map();
         for (const [, list] of bySrc) list.forEach((e, i) => srcIndex.set(e, i));
 
+        /* ── existing connection notes: one relationship = one arrow ──
+           A pair can carry several relationships (different aspects); each
+           note between the pair becomes its own parallel arrow. */
+        const normKey = (s) => String(s).replace(/^\[\[|\]\]$/g, "").split("|")[0].trim().replace(/\.md$/, "").replace(/\/+$/, "");
+        const connNotesByPair = new Map();
+        try {
+          const folderPrefix = isRootFolder ? "" : folder.path.slice(1) + "/";
+          const connFiles = app.vault.getFiles().filter(
+            (f) => f.path.startsWith(folderPrefix + "_connections/") && f.extension === "md" && f.name !== "_index.excalidraw.md"
+          );
+          for (const f of connFiles) {
+            const fm = app.metadataCache.getFileCache(f)?.frontmatter;
+            if (!fm || !fm.from || !fm.to) continue;
+            const fa = normKey(fm.from), fb = normKey(fm.to);
+            if (!fa || !fb) continue;
+            const pk = [fa, fb].sort().join("⇔");
+            if (!connNotesByPair.has(pk)) connNotesByPair.set(pk, []);
+            connNotesByPair.get(pk).push({ rel: f.path, relation: (fm.relation || "peer").toLowerCase() });
+          }
+        } catch (err) { console.error("connection-note scan failed", err); }
+
         for (const e of drawn) {
           const ra = cardRect.get(e.a), rb = cardRect.get(e.b);
           if (!ra || !rb) continue;
           const p1 = anchor(ra, rb), p2 = anchor(rb, ra);
           const key = "link|" + e.a + "=>" + e.b;
-          const rel = classifyRel(e.a, e.b, e.mutual);
-          const style = REL_STYLE[rel];
 
-          // perpendicular offset for parallel arrows from the same source
+          const pk = [normKey(e.a), normKey(e.b)].sort().join("⇔");
+          const notes = (connNotesByPair.get(pk) || []).slice(0, 4);
+          const rels = notes.length ? notes : [{ rel: null, relation: classifyRel(e.a, e.b, e.mutual) }];
+          const fan = rels.length;
+          const multi = fan > 1;
+
+          // perpendicular offset: same-source siblings spread, same-pair
+          // relationships fan wider so the parallel lines stay readable
           const siblings = bySrc.get(e.a) || [];
           const myIndex = srcIndex.get(e) || 0;
-          let ox = 0, oy = 0;
-          if (siblings.length > 1) {
-            const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
-            const len = Math.hypot(dx, dy) || 1;
-            const spread = 14;
-            const off = (myIndex - (siblings.length - 1) / 2) * spread;
-            ox = (-dy / len) * off;
-            oy = (dx / len) * off;
-          }
+          const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+          const len = Math.hypot(dx, dy) || 1;
 
-          const aId = ea.addArrow(
-            [[p1[0] + ox, p1[1] + oy], [p2[0] + ox, p2[1] + oy]],
-            {
-              strokeColor: style.color,
-              strokeWidth: style.w,
-              startArrowHead: e.mutual ? "arrow" : null,
-              endArrowHead: "arrow",
+          rels.forEach((relNote, i) => {
+            const style = REL_STYLE[relNote.relation] || REL_STYLE.peer;
+            let off = 0;
+            if (siblings.length > 1) off += (myIndex - (siblings.length - 1) / 2) * 14;
+            if (multi) off += (i - (fan - 1) / 2) * 18;
+            const ox = (-dy / len) * off;
+            const oy = (dx / len) * off;
+
+            const aId = ea.addArrow(
+              [[p1[0] + ox, p1[1] + oy], [p2[0] + ox, p2[1] + oy]],
+              {
+                strokeColor: style.color,
+                strokeWidth: style.w,
+                startArrowHead: e.mutual ? "arrow" : null,
+                endArrowHead: "arrow",
+              }
+            );
+            const arrowEl = ea.getElement(aId);
+            if (arrowEl) {
+              arrowEl.strokeStyle = style.dash;
+              arrowEl.opacity = style.op;
+              arrowEl.roundness = { type: 1 }; // Bezier curve
+              if (relNote.rel) arrowEl.link = wl(relNote.rel);
             }
-          );
-          const arrowEl = ea.getElement(aId);
-          if (arrowEl) {
-            arrowEl.strokeStyle = style.dash;
-            arrowEl.opacity = style.op;
-            arrowEl.roundness = { type: 1 }; // Bezier curve
-          }
-          stamp(aId, key, basename(e.a), "link", 0);
-          if (ea.getElement(aId)) ea.getElement(aId).customData = { ...ea.getElement(aId).customData, rel };
+            stamp(aId, key + (multi ? "#" + i : ""), basename(e.a), "link", 0);
+            const stamped = ea.getElement(aId);
+            if (stamped) stamped.customData = { ...stamped.customData, rel: relNote.relation };
+            if (multi) {
+              // label each parallel arrow so relationships stay tellable apart
+              const mx = (p1[0] + p2[0]) / 2 + ox, my = (p1[1] + p2[1]) / 2 + oy;
+              ea.setStyle({ fontFamily: 2, fontSize: 12, strokeColor: style.color });
+              const lId = ea.addText(mx, my - 26, relNote.relation, { textAlign: "center" });
+              stamp(lId, key + "#" + i + "|label", basename(e.a), "link-label", 0);
+            }
+          });
         }
       }
 

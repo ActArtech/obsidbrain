@@ -9,7 +9,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { Title, Breadcrumb, Pod, FileCard } from "./lib/components.mjs";
+import { Title, Breadcrumb, Pod, FileCard, Legend } from "./lib/components.mjs";
 import { compose } from "./lib/layout.mjs";
 
 const CFG = {
@@ -210,6 +210,16 @@ function buildFolderIndex(folderRel) {
       });
     }
   }
+  // one legend for the whole map instead of a dive chip on every pod
+  if (subfoldersCapped.length) {
+    sections.push({
+      name: "legend",
+      components: [Legend({
+        text: "click a pod to dive · click again to surface · every arrow opens its connection note",
+      })],
+      gapBefore: 12, gapY: 4,
+    });
+  }
   // balanced pod grid: ceil(sqrt(n)) pods per row, wrapped rows stacked
   const podComponents = subfoldersCapped.map((name) => Pod({
     name,
@@ -270,6 +280,8 @@ function buildFolderIndex(folderRel) {
           key: (spec.seed.startsWith("title|") ? "title|" : "bc|") + folderRel,
           basename: path.basename(folderRel), kind: spec.seed.startsWith("title|") ? "title" : "breadcrumb", slot: 0,
         };
+      } else if (spec.seed.startsWith("legend|")) {
+        e.customData = { fractalIndex: true, key: "legend|" + folderRel, basename: "legend", kind: "legend", slot: 0 };
       }
       elements.push(e);
     }
@@ -316,6 +328,32 @@ function buildFolderIndex(folderRel) {
   fs.mkdirSync(connDirAbs, { recursive: true });
   const safeName = (s) => s.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
   const wl = (p) => "[[" + String(p).replace(/([\[\]|])/g, "\\$1") + "]]";
+  const normKey = (s) => String(s).replace(/^\[\[|\]\]$/g, "").split("|")[0].trim().replace(/\.md$/, "").replace(/\/+$/, "");
+
+  /* index EXISTING connection notes by pair — a pair can carry several
+     relationships (different aspects), each gets its own parallel arrow */
+  const connNoteIndex = new Map(); // "a⇔b" (sorted, .md-stripped) → [{ rel, relation }]
+  if (fs.existsSync(connDirAbs)) {
+    for (const f of fs.readdirSync(connDirAbs).filter((f) => f.endsWith(".md") && f !== "_index.excalidraw.md")) {
+      const content = fs.readFileSync(path.join(connDirAbs, f), "utf8");
+      const fm = {};
+      const fmBlock = content.match(/^---\n([\s\S]*?)\n---/);
+      if (fmBlock) for (const line of fmBlock[1].split("\n")) {
+        const kv = line.match(/^(\w+):\s*"?(.*?)"?\s*$/);
+        if (kv) fm[kv[1]] = kv[2];
+      }
+      if (!fm.from || !fm.to) continue;
+      const fa = normKey(fm.from), fb = normKey(fm.to);
+      if (!fa || !fb) continue;
+      const k = [fa, fb].sort().join("⇔");
+      if (!connNoteIndex.has(k)) connNoteIndex.set(k, []);
+      connNoteIndex.get(k).push({
+        rel: connDirRel + "/" + f,
+        relation: (fm.relation || "peer").toLowerCase(),
+      });
+    }
+  }
+
   for (const e of drawn.slice(0, 30)) {
     const rel = classifyRel(e.a, e.b, e.mutual);
     const connRel = connDirRel + "/" + safeName(e.a) + "--" + safeName(e.b) + ".md";
@@ -362,30 +400,53 @@ function buildFolderIndex(folderRel) {
   for (const e of drawn) { if (!bySrc.has(e.a)) bySrc.set(e.a, []); bySrc.get(e.a).push(e); }
   const srcIndex = new Map();
   for (const [, list] of bySrc) list.forEach((e, i) => srcIndex.set(e, i));
+  const pairIndex = new Map(); // same-pair relationships fan out as parallel arrows
 
   for (const e of drawn) {
     const ra = podByKey.get(e.a) || cardByKey.get(e.a);
     const rb = podByKey.get(e.b) || cardByKey.get(e.b);
     if (!ra || !rb) continue;
     const p1 = anchor(ra, rb), p2 = anchor(rb, ra);
-    const rel = classifyRel(e.a, e.b, e.mutual);
-    const style = REL_STYLE[rel];
+    // every connection note between this pair = one relationship = one arrow
+    const k = [normKey(e.a), normKey(e.b)].sort().join("⇔");
+    const notes = (connNoteIndex.get(k) || []).slice(0, 4);
+    const rels = notes.length ? notes : [{ rel: e.connRel || null, relation: classifyRel(e.a, e.b, e.mutual) }];
+    const fan = rels.length;
+    const pairNo = pairIndex.get(k) || 0;
+    pairIndex.set(k, pairNo + fan);
     const siblings = bySrc.get(e.a) || [];
-    let ox = 0, oy = 0;
-    if (siblings.length > 1) {
+
+    rels.forEach((relNote, i) => {
+      const style = REL_STYLE[relNote.relation] || REL_STYLE.peer;
+      let ox = 0, oy = 0;
       const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
       const len = Math.hypot(dx, dy) || 1;
-      const off = ((srcIndex.get(e) || 0) - (siblings.length - 1) / 2) * 14;
+      // same-source siblings spread first, same-pair relationships fan wider
+      let off = 0;
+      if (siblings.length > 1) off += ((srcIndex.get(e) || 0) - (siblings.length - 1) / 2) * 14;
+      if (fan > 1) off += (pairNo + i - (pairIndex.get(k) - 1) / 2) * 18;
       ox = (-dy / len) * off; oy = (dx / len) * off;
-    }
-    const key = "link|" + e.a + "=>" + e.b;
-    elements.push(el("arrow", key, p1[0] + ox, p1[1] + oy, Math.abs(p2[0] - p1[0]), Math.abs(p2[1] - p1[1]), {
-      points: [[0, 0], [p2[0] - p1[0], p2[1] - p1[1]]],
-      color: style.color, strokeWidth: style.w, dash: style.dash, op: style.op,
-      round: { type: 1 }, startArrowhead: e.mutual ? "arrow" : null, endArrowhead: "arrow",
-      link: e.connRel ? wl(e.connRel) : null,
-      customData: { fractalIndex: true, key, basename: path.basename(e.a), kind: "link", slot: 0, rel },
-    }));
+      const multi = fan > 1;
+      const key = "link|" + e.a + "=>" + e.b + (multi ? "#" + i : "");
+      const arrow = el("arrow", key, p1[0] + ox, p1[1] + oy, Math.abs(p2[0] - p1[0]), Math.abs(p2[1] - p1[1]), {
+        points: [[0, 0], [p2[0] - p1[0], p2[1] - p1[1]]],
+        color: style.color, strokeWidth: style.w, dash: style.dash, op: style.op,
+        round: { type: 1 }, startArrowhead: e.mutual ? "arrow" : null, endArrowhead: "arrow",
+        link: relNote.rel ? wl(relNote.rel) : null,
+        customData: { fractalIndex: true, key, basename: path.basename(e.a), kind: "link", slot: 0, rel: relNote.relation },
+      });
+      elements.push(arrow);
+      if (multi) {
+        // label each parallel arrow so the relationships stay tellable apart
+        const mx = (p1[0] + p2[0]) / 2 + ox, my = (p1[1] + p2[1]) / 2 + oy;
+        const label = relNote.relation;
+        const lm = { w: label.length * 7, h: 16 };
+        elements.push(el("text", key + "|label", mx - lm.w / 2, my - lm.h - 4, lm.w, lm.h, {
+          text: label, fontSize: 12, fontFamily: 2, color: style.color,
+          customData: { fractalIndex: true, key: key + "|label", basename: path.basename(e.a), kind: "link-label", slot: 0 },
+        }));
+      }
+    });
   }
 
   return { elements, height };

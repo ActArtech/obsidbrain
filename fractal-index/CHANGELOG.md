@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.9.2 - 2026-10-08
+
+- NEW: **multiple relationships between the same pair**. A pair can carry
+  several connection notes (`A--B.md`, `A--B--2.md`, …), each its own
+  aspect with its own relation type. Maps render them as PARALLEL arrows
+  (fanned perpendicular, labeled with the relation when more than one);
+  the graph model stores one edge per note and suppresses the inferred
+  wikilink edge for covered pairs.
+- Declutter: one legend line per map ("click a pod to dive · click again to
+  surface · every arrow opens its connection note") replaces the dive chip
+  repeated on every pod.
+- FIXED: brain discovery never found a brain at the vault ROOT (parent check
+  compared the root index against itself); the Excalidraw folder is now
+  skipped when scanning.
+- Tests: +1 multi-relationship graph test (21), all suites green.
+
 ## 1.9.1 - 2026-10-07
 
 - ExcaliBrain in-between wiring completed and verified live: ontology fields

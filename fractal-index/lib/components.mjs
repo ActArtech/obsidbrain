@@ -64,16 +64,16 @@ export function Breadcrumb({ text, link }) {
   };
 }
 
-export function Pod({ name, childCount, embedPath = null, hint = null, chip = "⤢ click pod to dive", width = 380 }) {
+export function Pod({ name, childCount, embedPath = null, hint = null, chip = null, width = 380 }) {
   const label = `📁 ${name}  (${childCount})`;
   const lm = measureText(label, 26);
-  const chipM = measureText(chip, 14);
+  const chipM = measureText(chip || "", 14);
   const PAD = 16;
   const LABEL_H = Math.max(34, lm.h);
   const EMBED_H = 210;
   const BOX_H = PAD + LABEL_H + 8 + EMBED_H + 16;
-  const CHIP_ROW = chipM.h + 6;
-  const w = Math.min(Math.max(width, lm.w + PAD * 2 + chipM.w + 12), 560);
+  const CHIP_ROW = chip ? chipM.h + 6 : 4;
+  const w = Math.min(Math.max(width, lm.w + PAD * 2 + 24), 560);
   const h = CHIP_ROW + BOX_H;
   const embedTarget = embedPath;
 
@@ -84,14 +84,16 @@ export function Pod({ name, childCount, embedPath = null, hint = null, chip = "�
     render(x, y) {
       const els = [];
       const boxY = y + CHIP_ROW;
-      // decoration row above the box: dive chip, right-aligned
-      els.push({
-        make: (seed) => el("text", seed, x + w - chipM.w, y, chipM.w, chipM.h, {
-          text: chip, fontSize: 14, fontFamily: 2, color: "#a78bfa", align: "right",
-        }),
-        seed: "chip|" + name,
-        bounds: { x: x + w - chipM.w, y, w: chipM.w, h: chipM.h },
-      });
+      // decoration row above the box: dive chip (opt-in), right-aligned
+      if (chip) {
+        els.push({
+          make: (seed) => el("text", seed, x + w - chipM.w, y, chipM.w, chipM.h, {
+            text: chip, fontSize: 14, fontFamily: 2, color: "#a78bfa", align: "right",
+          }),
+          seed: "chip|" + name,
+          bounds: { x: x + w - chipM.w, y, w: chipM.w, h: chipM.h },
+        });
+      }
       // box frame
       els.push({
         make: (seed) => el("rectangle", seed, x, boxY, w, BOX_H, {
@@ -164,6 +166,26 @@ export function FileCard({ icon, name, link }) {
           seed: "cardtext|" + name,
         },
       ];
+    },
+  };
+}
+
+/* ── Legend — one line of map instructions (replaces per-pod dive chips) ── */
+export function Legend({ text, width }) {
+  const lm = measureText(text, 15);
+  const w = Math.min(width || lm.w + 8, 900);
+  return {
+    size: { w, h: lm.h },
+    name: "legend",
+    meta: { label: text },
+    render(x, y) {
+      return [{
+        make: (seed) => el("text", seed, x, y, lm.w, lm.h, {
+          text, fontSize: 15, fontFamily: 2, color: "#8a8f98",
+        }),
+        seed: "legend|" + text.slice(0, 24),
+        bounds: { x, y, w: lm.w, h: lm.h },
+      }];
     },
   };
 }

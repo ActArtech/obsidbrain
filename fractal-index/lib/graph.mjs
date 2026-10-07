@@ -547,23 +547,10 @@ export function extractGraph(vaultPath, brainFolder = "", { hierarchy = true } =
     return null;
   };
 
-  // edges: forward links (PEER or type from inline fields)
-  for (const f of mdFiles) {
-    const content = fs.readFileSync(f.abs, "utf8");
-    for (const m of content.matchAll(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g)) {
-      const resolved = resolveLink(m[1]);
-      if (resolved && resolved.rel !== f.rel && resolved.kind === "Note") {
-        const edgeId = f.rel + "=>" + resolved.rel;
-        if (!g.edge(edgeId)) {
-          g.addEdge(edgeId, "PEER", f.rel, resolved.rel, { inferred: true });
-        }
-      }
-    }
-  }
-
-  // edges: connection notes → typed relationships (RESONATES, BRIDGES, …)
-  // read from EVERY level's _connections/ folder; from/to may be notes
-  // or folders (system-to-system relationships)
+  // edges: connection notes FIRST — one edge PER NOTE (id = note path), so
+  // the same pair can carry several relationships; their pairs are then
+  // excluded from inference below
+  const coveredPairs = new Set(); // "a=>b" both directions
   for (const connDir of connDirs) {
     for (const f of fs.readdirSync(connDir).filter((f) => f.endsWith(".md") && f !== "_index.excalidraw.md")) {
       const content = fs.readFileSync(path.join(connDir, f), "utf8");
@@ -573,12 +560,28 @@ export function extractGraph(vaultPath, brainFolder = "", { hierarchy = true } =
       const to = resolveLink(fm.to);
       if (!from || !to || from.rel === to.rel) continue;
       const type = (fm.relation || "PEER").toUpperCase();
-      const edgeId = from.rel + "=>" + to.rel;
-      // explicit connection notes win over inferred wikilink edges
-      g.addEdge(edgeId, type, from.rel, to.rel, {
+      const notePath = path.relative(vaultPath, path.join(connDir, f)).split(path.sep).join("/");
+      coveredPairs.add(from.rel + "=>" + to.rel);
+      coveredPairs.add(to.rel + "=>" + from.rel);
+      g.addEdge("note:" + notePath, type, from.rel, to.rel, {
         relation: fm.relation, weight: Number(fm.weight) || 1, mutual: fm.mutual === "true",
-        note: path.relative(vaultPath, path.join(connDir, f)).split(path.sep).join("/"),
+        note: notePath,
       });
+    }
+  }
+
+  // edges: forward wikilinks, INFERRED only — skipped for pairs that carry
+  // an explicit connection note (those own the relationship)
+  for (const f of mdFiles) {
+    const content = fs.readFileSync(f.abs, "utf8");
+    for (const m of content.matchAll(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g)) {
+      const resolved = resolveLink(m[1]);
+      if (resolved && resolved.rel !== f.rel && resolved.kind === "Note") {
+        const edgeId = f.rel + "=>" + resolved.rel;
+        if (!g.edge(edgeId) && !coveredPairs.has(edgeId)) {
+          g.addEdge(edgeId, "PEER", f.rel, resolved.rel, { inferred: true });
+        }
+      }
     }
   }
 
