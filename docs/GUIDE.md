@@ -10,7 +10,7 @@ Three failure modes of knowledge tools, and the answer this system gives:
 
 | Failure mode | What goes wrong | The fractal answer |
 |---|---|---|
-| **Graph views** (Obsidian graph, ExcaliBrain) | nodes float on springs; the map you *learned* is gone the moment you navigate | positions are **permanent** — your spatial memory compounds |
+| **Graph views** (force-directed graph panes) | nodes float on springs; the map you *learned* is gone the moment you navigate | positions are **permanent** — your spatial memory compounds |
 | **Folder trees** | structure exists but is invisible; you scroll, you don't see | every folder is a **map**: files as cards, subfolders as pods with live previews of the level below |
 | **Todo lists & boards** | dependencies between projects are invisible | arrows are read from your **actual wikilinks** — including cross-folder dependencies, at the level where they matter |
 

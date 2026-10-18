@@ -122,7 +122,7 @@ Fractal Index maps            graph.mjs (NEW)
   visual arrows              explicit queries + algorithms
        │                              │
        ▼                              ▼
-  ExcaliBrain graph           Neo4j export (optional)
+  live graph view             Neo4j export (optional)
 ```
 
 The two paths are **parallel views of the same graph** — one visual, one computational. The graph model layer is the bridge.

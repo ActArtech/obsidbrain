@@ -31,13 +31,30 @@ flowchart TB
 
 *The Knowledge Garden brain map — generated, rendered by Mermaid. Every arrow is a real relationship; labels name the kind. See the full [Gallery](docs/GALLERY.md).*
 
+## The Fractal Brain view
+
+**The map is a view over your notes — never a stored drawing.** The obsidbrain plugin renders your brain live: notes, folders as expandable clusters, and typed colored edges built from your wikilinks and connection notes.
+
+- **click a note** → opens it · **click an edge** → opens that relationship's connection note
+- **double-click a folder** → expand / collapse its children in place (dive)
+- **⛶ full screen** stays inside Obsidian · parallel relationships render as separate labeled edges
+- nothing is saved — edit a note, reopen, the brain is current
+
+![Fractal Brain view](docs/images/fractal-brain.gif)
+
+## Diagrams that never break
+
+Brain maps are generated per folder as ```_index.map.md``` (renders natively in Obsidian and on GitHub — like the diagram above) plus a fullscreen ```_index.map.html``` with pan/zoom. The diagram source follows locked rules — direction, short quoted labels, a ≤12-node budget per view, relation-typed classDefs — so layout quality is enforced by construction, not by hand.
+
+Diagram rendering powered by [Mermaid](https://mermaid.js.org) — the same engine behind our sibling project **[systembrief](https://github.com/ActArtech/systembrief)** (strategy-first architecture briefs).
+
 > Every image in this README is rendered from a real generated map. See the full [Gallery](docs/GALLERY.md).
 
 ## Why
 
 | Tool | The problem | obsidbrain's answer |
 |---|---|---|
-| Graph views | nodes float on springs — the map you memorized is gone on every navigation | **positions are permanent** — your spatial memory compounds |
+| Graph views | nodes float on springs — the map you memorized is gone on every navigation | **the graph is the interface** — typed relationships, folders as clusters, always current |
 | Folder trees | structure is invisible; you scroll, you don't *see* | every folder becomes a **map**: files as cards, subfolders as pods with live embeds |
 | Hand-drawn diagrams | arrows drift, layouts rot, maintenance kills them | maps are **generated** from your notes — zero maintenance, regenerate any time |
 
