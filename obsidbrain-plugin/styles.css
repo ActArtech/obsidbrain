@@ -1,0 +1,15 @@
+/* Obsidbrain Fractal Brain view styles */
+.obsidbrain-root { display: flex; flex-direction: column; height: 100%; padding: 0; }
+.obsidbrain-bar {
+  display: flex; gap: 6px; align-items: center; padding: 6px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.obsidbrain-root-label { font-weight: 600; color: var(--text-normal); margin-right: auto; }
+.obsidbrain-bar button {
+  border: 1px solid var(--background-modifier-border); background: var(--background-secondary);
+  border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; color: var(--text-normal);
+}
+.obsidbrain-bar button:hover { background: var(--background-modifier-hover); }
+.obsidbrain-canvas { flex: 1; min-height: 0; position: relative; }
+.obsidbrain-cy { position: absolute; inset: 0; }
+.obsidbrain-cy canvas { outline: none; }

@@ -1,0 +1,9 @@
+{
+  "id": "obsidbrain",
+  "name": "Obsidbrain Fractal Brain",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Live-rendered fractal brain view: typed relationships, connection notes, folders as expandable clusters. The map is a view over your notes — never a stored drawing.",
+  "author": "ActArtech",
+  "isDesktopOnly": true
+}
