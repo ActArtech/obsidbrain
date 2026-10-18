@@ -4,6 +4,8 @@
 
 Turn any folder into a stable, zoomable, infinitely-nestable visual map — with positions that never move out from under you, and arrows that come from your *actual* wikilinks.
 
+> *The system now builds itself faster than we can design it. The bottleneck is your design decisions, not the code — and that's exactly where it should be.*
+
 ```mermaid
 flowchart TB
   classDef folder fill:#fff7ed,stroke:#c2410c,color:#1d1d1f,stroke-width:2px
