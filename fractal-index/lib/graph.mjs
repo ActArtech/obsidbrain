@@ -467,7 +467,7 @@ export function extractGraph(vaultPath, brainFolder = "", { hierarchy = true } =
       if (e.isDirectory()) {
         if (e.name === "_connections") { connDirs.push(p); continue; }
         walk(p, out);
-      } else if (e.name.endsWith(".md") && !e.name.endsWith(".excalidraw.md")) {
+      } else if (e.name.endsWith(".md") && !e.name.endsWith(".excalidraw.md") && !e.name.startsWith("_index")) {
         out.push(p);
       }
     }

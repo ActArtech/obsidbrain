@@ -111,13 +111,10 @@ check("T1c 'create sub-indexes' created 3 _index drawings on disk", () => {
     assert.ok(fs.existsSync(path.join(TMP, p)), "missing " + p);
   }
 });
-check("T1d every pod embeds its sub-index drawing (fractal preview)", () => {
-  assert.equal(embeds.length, 3);
-  assert.ok(embeds.every((el) => /^\[\[Brain\/.+\/_index\.excalidraw\.md\]\]$/.test(el.link || "")));
-});
-check("T1d2 pod embeds are image transclusions, not embeddable iframes", () => {
-  assert.ok(embeds.every((el) => el.type === "image" && el.fileId),
-    "pod preview must be an image element with fileId (embeddable hangs white)");
+check("T1d pods are clean labeled boxes — no preview images, no embeddables", () => {
+  assert.equal(embeds.length, 0, "preview images removed: they fought the plugin's embed rendering and added noise");
+  const hints = brainEls.filter((el) => el.customData?.kind === "hint");
+  assert.equal(hints.length, 0, "clean pods: the two-pass build resolves every sub-index");
 });
 check("T1e file cards carry wiki links to their files", () => {
   const readme = fileCards.find((el) => el.customData.basename === "README.md");

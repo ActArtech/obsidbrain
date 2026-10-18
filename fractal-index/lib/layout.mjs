@@ -36,17 +36,20 @@ export function shelfPack(items, maxWidth, gapX, gapY) {
 }
 
 /**
- * Compose sections vertically; each section is shelf-packed to the same
- * max width. Runs the overlap invariant across ALL placed components
- * (arrows excluded — they connect, so crossing is their job).
+ * Compose sections vertically; each section is shelf-packed to its own
+ * `maxWidth` (or the compose-level default). Runs the overlap invariant
+ * across ALL placed components (arrows excluded — they connect, so
+ * crossing is their job).
  */
 export function compose(sections, { maxWidth, gapX = 60, gapY = 60 }) {
   const allBounds = []; // {x,y,w,h,label}
   const elementChunks = [];
   let y = 0;
+  let width = 0;
   const placedBySection = [];
   for (const section of sections) {
-    const { placed, totalW, totalH } = shelfPack(section.components, maxWidth, section.gapX ?? gapX, section.gapY ?? gapY);
+    const wrapWidth = section.maxWidth ?? maxWidth;
+    const { placed, totalW, totalH } = shelfPack(section.components, wrapWidth, section.gapX ?? gapX, section.gapY ?? gapY);
     y += section.gapBefore ?? 0;
     const sectionY = y;
     for (const p of placed) {
@@ -60,8 +63,9 @@ export function compose(sections, { maxWidth, gapX = 60, gapY = 60 }) {
       const els = p.item.render(p.x, sectionY + p.y);
       elementChunks.push({ section: section.name, els, origin: { x: p.x, y: sectionY + p.y }, bounds: p });
     }
+    width = Math.max(width, totalW);
     y = sectionY + totalH + gapY;
   }
   assertNoOverlap(allBounds);
-  return { placedBySection, elementChunks, height: y, width: maxWidth };
+  return { placedBySection, elementChunks, height: y, width };
 }

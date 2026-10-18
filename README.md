@@ -4,7 +4,32 @@
 
 Turn any folder into a stable, zoomable, infinitely-nestable visual map — with positions that never move out from under you, and arrows that come from your *actual* wikilinks.
 
-![demo](docs/images/demo.gif)
+```mermaid
+flowchart TB
+  classDef folder fill:#fff7ed,stroke:#c2410c,color:#1d1d1f,stroke-width:2px
+  classDef note fill:#ffffff,stroke:#64748b,color:#1d1d1f
+  classDef hub fill:#ecfdf5,stroke:#047857,color:#1d1d1f,stroke-width:2px
+  nGarden["📁 Garden"]:::hub
+  nGarden_Fields["📁 Fields"]:::folder
+  nGarden_Inbox["📁 Inbox"]:::folder
+  nGarden_Journal["📁 Journal"]:::folder
+  nGarden_Methods["📁 Methods"]:::folder
+  nGarden_People["📁 People"]:::folder
+  nGarden_Projects["📁 Projects"]:::folder
+  nGarden_Sources["📁 Sources"]:::folder
+  nGarden_attachments["📁 attachments"]:::folder
+  nGarden_Welcome_md["Welcome"]:::note
+  nGarden_Welcome_md -->|"feeds ×2"| nGarden_Fields
+  nGarden_Inbox -->|"nourishes ×2"| nGarden_Fields
+  nGarden_Sources -->|"nourishes ×2"| nGarden_Fields
+  nGarden_Welcome_md -->|"feeds"| nGarden_Inbox
+  nGarden_Welcome_md -->|"feeds"| nGarden_Methods
+  nGarden_Welcome_md -->|"feeds"| nGarden_Projects
+  nGarden_Welcome_md -->|"feeds"| nGarden_Sources
+  nGarden_Journal -->|"feeds"| nGarden_Inbox
+```
+
+*The Knowledge Garden brain map — generated, rendered by Mermaid. Every arrow is a real relationship; labels name the kind. See the full [Gallery](docs/GALLERY.md).*
 
 > Every image in this README is rendered from a real generated map. See the full [Gallery](docs/GALLERY.md).
 

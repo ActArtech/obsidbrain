@@ -70,8 +70,8 @@ export function Pod({ name, childCount, embedPath = null, hint = null, chip = nu
   const chipM = measureText(chip || "", 14);
   const PAD = 16;
   const LABEL_H = Math.max(34, lm.h);
-  const EMBED_H = 210;
-  const BOX_H = PAD + LABEL_H + 8 + EMBED_H + 16;
+  const EMBED_H = 110; // breathing room inside the pod (label + space)
+  const BOX_H = PAD + LABEL_H + 8 + EMBED_H;
   const CHIP_ROW = chip ? chipM.h + 6 : 4;
   const w = Math.min(Math.max(width, lm.w + PAD * 2 + 24), 560);
   const h = CHIP_ROW + BOX_H;
@@ -117,17 +117,10 @@ export function Pod({ name, childCount, embedPath = null, hint = null, chip = nu
         seed: "podlabel|" + name,
         bounds: { x: x + PAD, y: boxY + 10, w: lm.w, h: lm.h },
       });
-      // embed or hint — the pod preview is an image element transcluding the
-      // sub-index drawing (embeddable elements hang mounting a nested view
-      // and render as white boxes); build-index attaches the SVG dataURL
-      if (embedTarget) {
-        els.push({
-          make: (seed) => el("image", seed, x + 20, boxY + PAD + LABEL_H + 8, w - 40, EMBED_H, {
-            strokeColor: "#8b5cf6", link: wl(embedTarget),
-          }),
-          seed: "podembed|" + name,
-        });
-      } else {
+      // clean pod body — no preview images: they fought the plugin's embed
+      // rendering (area-preservation, loader limits) and added noise; the
+      // structure lives one dive away. Hint only when the child map is missing.
+      if (!embedTarget) {
         const hint = "(no _index yet — run Fractal Index inside\nthis subfolder to grow the fractal)";
         const hm = measureText(hint, 16);
         els.push({
@@ -145,7 +138,7 @@ export function Pod({ name, childCount, embedPath = null, hint = null, chip = nu
 export function FileCard({ icon, name, link }) {
   const label = `${icon} ${name}`;
   const m = measureText(label, 20);
-  const w = Math.max(140, m.w + 24);
+  const w = 260; // uniform width — vertical columns stay perfectly aligned
   const h = m.h + 20;
   return {
     size: { w, h },

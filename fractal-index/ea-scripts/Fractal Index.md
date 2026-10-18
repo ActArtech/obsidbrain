@@ -259,7 +259,7 @@ try {
         .filter((c) => c.children && !c.name.startsWith("."))
         .sort((a, b) => a.name.localeCompare(b.name));
       const files = children
-        .filter((c) => !c.children && !c.name.startsWith(".") && c.path !== indexFile.path)
+        .filter((c) => !c.children && !c.name.startsWith(".") && !c.name.startsWith("_index") && c.path !== indexFile.path)
         .sort((a, b) => a.name.localeCompare(b.name));
 
       if (!files.length && !subfolders.length) {
@@ -456,38 +456,21 @@ try {
         stamp(labelId, key + "|label", sf.name, "pod-label", slot);
         if (idx) ea.getElement(labelId).link = wl(idx.path);
 
-        let embId = null, hintId = null;
-        if (idx) {
-          // pod preview = image element transcluding the sub-index drawing.
-          // (addEmbeddable is for web/pdf/md embeds; for .excalidraw.md it
-          // mounts a nested view in a detached container that never loads —
-          // the white-box bug. Images rasterize the child scene instead.)
-          embId = await ea.addImage(
-            x + CFG.embed.marginX,
-            y + CFG.embed.topOffset,
-            idx
-          );
-          if (embId) {
-            const emb = ea.getElement(embId);
-            emb.x = x + CFG.embed.marginX;
-            emb.y = y + CFG.embed.topOffset;
-            emb.width = CFG.pod.w - 2 * CFG.embed.marginX;
-            emb.height = CFG.pod.h - CFG.embed.topOffset - CFG.embed.bottomMargin;
-            emb.link = wl(idx.path);
-            stamp(embId, key + "|embed", sf.name, "embed", slot);
-          }
-        } else {
+        let hintId = null;
+        if (!idx) {
           ea.setStyle({ fontFamily: 2, fontSize: 16, strokeColor: CFG.colors.muted });
           hintId = sid(key + "|hint");
           ea.addText(x + CFG.embed.marginX, y + CFG.embed.topOffset, "(no _index yet — run Fractal Index inside\nthis subfolder to grow the fractal)", { wrapAt: 42 }, hintId);
           stamp(hintId, key + "|hint", sf.name, "hint", slot);
         }
+        // pod body kept clean — no preview images (they fought the plugin's
+        // embed rendering and added noise; the structure is one dive away)
         // per-pod dive chips removed — the map-level legend covers it
 
         try {
           if (typeof ea.addToGroup === "function") {
             // move any pod element → the whole pod moves with it
-            ea.addToGroup([fid, motifId, labelId, embId || hintId].filter(Boolean));
+            ea.addToGroup([fid, motifId, labelId, hintId].filter(Boolean));
           }
         } catch (e) { /* grouping is a convenience; never fail generation for it */ }
       }

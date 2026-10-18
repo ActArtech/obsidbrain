@@ -11,13 +11,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { Title, Breadcrumb, Pod, FileCard, Legend } from "./lib/components.mjs";
 import { compose } from "./lib/layout.mjs";
+import { extractGraph } from "./lib/graph.mjs";
+import { graphToMermaidMaps } from "./lib/mermaid-view.mjs";
 
 const CFG = {
   indexName: "_index.excalidraw.md",
   maxItems: 500,
   maxLinks: 60,
   layoutVersion: 3,
-  maxWidth: 2300,
+  maxWidth: 1900,
   gapX: 60,
   gapY: 60,
 };
@@ -83,7 +85,20 @@ for (const f of mdFiles) {
 }
 
 /* ── brains ── */
-const indexPaths = allFiles.filter((f) => path.basename(f.rel) === CFG.indexName).map((f) => f.rel);
+let indexPaths = allFiles.filter((f) => path.basename(f.rel) === CFG.indexName).map((f) => f.rel);
+// rescan after a bootstrap build so newly created sub-indexes are visible
+function rescanIndexPaths() {
+  const walk2 = (dir, out = []) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith(".") || e.name === "Excalidraw" || e.name.startsWith("_connections")) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk2(p, out);
+      else out.push({ path: p, rel: path.relative(vault, p).split(path.sep).join("/") });
+    }
+    return out;
+  };
+  indexPaths = walk2(vault).filter((f) => path.basename(f.rel) === CFG.indexName).map((f) => f.rel);
+}
 const brains = [];
 for (const ip of indexPaths) {
   const dir = path.posix.dirname(ip);
@@ -183,14 +198,14 @@ function el(type, seed, x, y, w, h, extra = {}) {
 }
 
 /* ── build one folder's index from components + solver ── */
-function buildFolderIndex(folderRel) {
+function buildFolderIndex(folderRel, childAspects = null) {
   const abs = path.join(vault, folderRel);
   const prefix = folderRel ? folderRel + "/" : "";
   const children = fs.existsSync(abs)
     ? fs.readdirSync(abs, { withFileTypes: true }).filter((e) => !e.name.startsWith(".") && !e.name.startsWith("_"))
     : [];
   const subfolders = children.filter((e) => e.isDirectory()).map((e) => e.name).sort();
-  const files = children.filter((e) => e.isFile() && e.name !== CFG.indexName).map((e) => e.name).sort();
+  const files = children.filter((e) => e.isFile() && !e.name.startsWith("_index")).map((e) => e.name).sort();
   const filesCapped = files.slice(0, CFG.maxItems);
   const subfoldersCapped = subfolders.slice(0, Math.max(0, CFG.maxItems - filesCapped.length));
   const podKeys = subfoldersCapped.map((n) => prefix + n + "/");
@@ -243,6 +258,7 @@ function buildFolderIndex(folderRel) {
       link: prefix + name,
     })),
     gapBefore: 80,
+    maxWidth: 420, // cards stack UNDER EACH OTHER — vertical, like a contents list
   });
 
   /* solve layout (throws on any overlap) */
@@ -453,7 +469,7 @@ function buildFolderIndex(folderRel) {
 }
 
 /* ── serialize ── */
-function toMD(elements, embeddedFiles = []) {
+function toMD(elements, embeddedFiles = [], files = {}) {
   const full = elements.map((e) => ({
     id: e.id, type: e.type,
     x: Math.round(e.x * 100) / 100, y: Math.round(e.y * 100) / 100,
@@ -470,7 +486,7 @@ function toMD(elements, embeddedFiles = []) {
       originalText: e.text, lineHeight: 1.3, autoResize: true,
     } : {}),
     ...(e.type === "arrow" ? { points: e.points, startArrowhead: e.startArrowhead ?? null, endArrowhead: e.endArrowhead ?? "arrow" } : {}),
-    ...(e.type === "image" ? { fileId: e.fileId || null, scale: e.scale || [1, 1], crop: null } : {}),
+    ...(e.type === "image" ? { fileId: e.fileId || null, scale: e.scale || [1, 1], crop: e.crop || null } : {}),
     ...(e.type === "embeddable" ? { scale: e.scale || [1, 1] } : {}),
     ...(e.customData ? { customData: e.customData } : {}),
   }));
@@ -482,7 +498,7 @@ function toMD(elements, embeddedFiles = []) {
   const embeddedSection = embeddedFiles.length
     ? "## Embedded Files\n" + embeddedFiles.map((f) => `${f.fileId}: ${f.ref}\n`).join("\n")
     : "";
-  const scene = { type: "excalidraw", version: 2, source: "fractal-index build-index v3", elements: full, appState: { grid: null, viewBackgroundColor: "#ffffff" }, files: {} };
+  const scene = { type: "excalidraw", version: 2, source: "fractal-index build-index v3", elements: full, appState: { grid: null, viewBackgroundColor: "#ffffff" }, files };
   return ["---", "excalidraw-plugin: parsed", "tags: [excalidraw]", "---", "",
     "# Excalidraw Data", "## Text Elements", textSection, "",
     embeddedSection,
@@ -497,28 +513,60 @@ for (const brain of targets) {
     .filter((f, i, a) => a.indexOf(f) === i)
     .sort((a, b) => a.split("/").length - b.split("/").length);
 
-  // pass 1: build every level in memory (children included — previews of
+  // pass 1 (bootstrap): write every level once so the sub-index files exist —
+  // otherwise a fresh vault's pods render "(no _index yet)" hints because the
+  // embed decision ran before the children were created
+  if (folders.some((folder) => !indexPaths.includes((folder ? folder + "/" : "") + CFG.indexName))) {
+    for (const folder of folders) {
+      const s = buildFolderIndex(folder);
+      fs.writeFileSync(path.join(vault, folder, CFG.indexName), toMD(s.elements, []), "utf8");
+    }
+    rescanIndexPaths();
+  }
+
+  // child aspects no longer needed: pods are clean labeled boxes (preview
+  // images removed — they fought the plugin's embed rendering and added noise)
+
+  // pass 2: build every level in memory (children included — previews of
   // sub-levels come from the same run, no re-read needed)
   const scenes = new Map(); // folderRel → { elements, height }
   for (const folder of folders) {
     scenes.set(folder, buildFolderIndex(folder));
   }
 
-  // pass 2: pod previews — image elements resolve their dataURL through the
-  // plugin's `## Embedded Files` section; emit one entry per image embed
+  // pass 3: connection-note wiring — arrows already link to their notes via
+  // e.connRel; nothing further to attach here now that pods carry no previews.
   const stats = [];
+
+  // pass 4: Mermaid map per folder (`_index.map.md`) — renders natively in
+  // Obsidian, follows the systembrief locked rules (TB, quoted short labels,
+  // ≤12 nodes, typed labeled edges, parallel edges welcome)
+  const g = extractGraph(vault, brain);
+  const maps = graphToMermaidMaps(g, brain);
+  for (const folder of folders) {
+    const key = folder || brain;
+    const src = maps.get(key);
+    const title = "🧠 " + (folder ? folder.split("/").pop() : brain || "Vault") + " — brain map";
+    const fence = "`".repeat(3);
+    const md = [
+      "---",
+      `title: ${title}`,
+      "---",
+      "",
+      `# ${title}`,
+      "",
+      fence + "mermaid",
+      src || "flowchart TB\n  EMPTY[\"(no notes yet)\"]:::note",
+      fence,
+      "",
+    ].join("\n");
+    fs.writeFileSync(path.join(vault, folder, "_index.map.md"), md, "utf8");
+  }
+
   for (const [folder, s] of scenes) {
-    const embeddedFiles = [];
-    for (const e of s.elements) {
-      if (e.type !== "image" || e.fileId) continue;
-      const m = (e.link || "").match(/^\[\[([^\]|]+)/);
-      if (!m) continue;
-      e.fileId = e.id;
-      embeddedFiles.push({ fileId: e.id, ref: e.link });
-    }
-    fs.writeFileSync(path.join(vault, folder, CFG.indexName), toMD(s.elements, embeddedFiles), "utf8");
+    fs.writeFileSync(path.join(vault, folder, CFG.indexName), toMD(s.elements), "utf8");
     generated++;
-    stats.push(`  ✓ ${(folder || "(vault root)")}/` + CFG.indexName + " — " + s.elements.length + " elements, " + Math.round(s.height) + "px tall, " + embeddedFiles.length + " previews");
+    stats.push(`  ✓ ${(folder || "(vault root)")}/` + CFG.indexName + " — " + s.elements.length + " elements, " + Math.round(s.height) + "px tall");
   }
   console.log(stats.join("\n"));
 }
