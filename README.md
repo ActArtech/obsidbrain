@@ -96,6 +96,7 @@ node dual-views/cli.mjs --source gh:owner/repo --out views
 - [Full guide](docs/GUIDE.md) — philosophy, quick start, feature reference, FAQ
 - [The workflow](docs/WORKFLOW.md) — the daily/weekly operating loop
 - [Use-case recipes](docs/USE-CASES.md) — 5 personas with folder shapes and link etiquette
+- [Changelog](CHANGELOG.md) — release index; per-component history in `fractal-index/` and `dual-views/`
 - [Gallery](docs/GALLERY.md) — rendered maps with captions
 - [Review and fixes](docs/REVIEW-AND-FIXES-2026-10-07.md) — changes, verification, and upstream PR handoff
 - [Examples](examples/README.md) — three installable brains, small → showcase scale
