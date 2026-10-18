@@ -2,9 +2,9 @@
 
 **Fractal knowledge maps for [Obsidian](https://obsidian.md), powered by the [Excalidraw plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin).**
 
-Turn any folder into a stable, zoomable, infinitely-nestable visual map — with positions that never move out from under you, and arrows that come from your *actual* wikilinks.
+Turn any folder into a stable, zoomable, infinitely-nestable visual map, with positions that never move out from under you, and arrows that come from your *actual* wikilinks.
 
-> *The system now builds itself faster than we can design it. The bottleneck is your design decisions, not the code — and that's exactly where it should be.*
+> *The system now builds itself faster than we can design it. The bottleneck is your design decisions, not the code, and that's exactly where it should be.*
 
 ```mermaid
 flowchart TB
@@ -31,24 +31,24 @@ flowchart TB
   nGarden_Journal -->|"feeds"| nGarden_Inbox
 ```
 
-*The Knowledge Garden brain map — generated, rendered by Mermaid. Every arrow is a real relationship; labels name the kind. See the full [Gallery](docs/GALLERY.md).*
+*The Knowledge Garden brain map, generated and rendered by Mermaid. Every arrow is a real relationship; labels name the kind. See the full [Gallery](docs/GALLERY.md).*
 
 ## The Fractal Brain view
 
-**The map is a view over your notes — never a stored drawing.** The obsidbrain plugin renders your brain live: notes, folders as expandable clusters, and typed colored edges built from your wikilinks and connection notes.
+**The map is a view over your notes, never a stored drawing.** The obsidbrain plugin renders your brain live: notes, folders as expandable clusters, and typed colored edges built from your wikilinks and connection notes.
 
 - **click a note** → opens it · **click an edge** → opens that relationship's connection note
 - **double-click a folder** → expand / collapse its children in place (dive)
 - **⛶ full screen** stays inside Obsidian · parallel relationships render as separate labeled edges
-- nothing is saved — edit a note, reopen, the brain is current
+- nothing is saved: edit a note, reopen, the brain is current
 
 ![Fractal Brain view](docs/images/fractal-brain.gif)
 
 ## Diagrams that never break
 
-Brain maps are generated per folder as ```_index.map.md``` (renders natively in Obsidian and on GitHub — like the diagram above) plus a fullscreen ```_index.map.html``` with pan/zoom. The diagram source follows locked rules — direction, short quoted labels, a ≤12-node budget per view, relation-typed classDefs — so layout quality is enforced by construction, not by hand.
+Brain maps are generated per folder as ```_index.map.md``` (renders natively in Obsidian and on GitHub, like the diagram above) plus a fullscreen ```_index.map.html``` with pan/zoom. The diagram source follows locked rules (direction, short quoted labels, a ≤12-node budget per view, relation-typed classDefs), so layout quality is enforced by construction, not by hand.
 
-Diagram rendering powered by [Mermaid](https://mermaid.js.org) — the same engine behind our sibling project **[systembrief](https://github.com/ActArtech/systembrief)** (strategy-first architecture briefs).
+Diagram rendering powered by [Mermaid](https://mermaid.js.org), the same engine behind our sibling project **[systembrief](https://github.com/ActArtech/systembrief)** (strategy-first architecture briefs).
 
 > Every image in this README is rendered from a real generated map. See the full [Gallery](docs/GALLERY.md).
 
@@ -56,16 +56,16 @@ Diagram rendering powered by [Mermaid](https://mermaid.js.org) — the same engi
 
 | Tool | The problem | obsidbrain's answer |
 |---|---|---|
-| Graph views | nodes float on springs — the map you memorized is gone on every navigation | **the graph is the interface** — typed relationships, folders as clusters, always current |
+| Graph views | nodes float on springs: the map you memorized is gone on every navigation | **the graph is the interface**: typed relationships, folders as clusters, always current |
 | Folder trees | structure is invisible; you scroll, you don't *see* | every folder becomes a **map**: files as cards, subfolders as pods with live embeds |
-| Hand-drawn diagrams | arrows drift, layouts rot, maintenance kills them | maps are **generated** from your notes — zero maintenance, regenerate any time |
+| Hand-drawn diagrams | arrows drift, layouts rot, maintenance kills them | maps are **generated** from your notes: zero maintenance, regenerate any time |
 
 ## The three scripts
 
 | Script | What it does |
 |---|---|
 | **Fractal Index** | Generates a folder's map: file cards, subfolder pods with live embeds of their own maps, breadcrumbs, and relationship-aware arrows |
-| **Fractal Sync** | One command regenerates the *entire* brain — every level, prompts once. This is your weekly review |
+| **Fractal Sync** | One command regenerates the *entire* brain: every level, prompts once. This is your weekly review |
 | **Fractal Navigate** | Startup script: click a pod to *dive* into its embedded map, click again to surface, drag cards and arrows follow live |
 
 ## Install
@@ -88,7 +88,7 @@ cd obsidbrain
 node examples/install-demo.mjs knowledge-garden "<path-to-your-vault>"
 ```
 
-That installs a 51-note showcase brain with deliberate link topology — the READMEs *predict* which arrows you'll see, so you can verify everything works.
+That installs a 51-note showcase brain with deliberate link topology: the READMEs *predict* which arrows you'll see, so you can verify everything works.
 
 ## Rebuild maps without opening Obsidian
 
@@ -101,7 +101,7 @@ node scripts/build-index.mjs "<path-to-vault>"   # regenerates every _index map 
 1. In any folder, create an Excalidraw drawing named `_index`
 2. Open it → Excalidraw Scripts panel → **Fractal Index** → *"folder + create sub-indexes"* → *"with note-link arrows"* → pick a direction (**TD** = hierarchy, **LR** = journey)
 3. **Click a pod**: the canvas dives into that subfolder's own map. Click again: surface
-4. Weekly: open the root map and run **Fractal Sync** — every level regenerates in one command. Nothing you arranged by hand ever moves
+4. Weekly: open the root map and run **Fractal Sync**: every level regenerates in one command. Nothing you arranged by hand ever moves
 
 ## What makes it different
 
@@ -111,7 +111,7 @@ Every node's position comes from a persistent slot identity. Regeneration **adop
 
 ### Relationship-aware curved arrows
 
-Arrows come from your notes' **actual wikilinks** (`metadataCache.resolvedLinks`) — never hand-drawn, never stale. Five relationship types are inferred from topology, each with its own visual signature:
+Arrows come from your notes' **actual wikilinks** (`metadataCache.resolvedLinks`): never hand-drawn, never stale. Five relationship types are inferred from topology, each with its own visual signature:
 
 | Type | Meaning | Look |
 |---|---|---|
@@ -121,7 +121,7 @@ Arrows come from your notes' **actual wikilinks** (`metadataCache.resolvedLinks`
 | **nourishes** | pod→card | dotted muted purple |
 | **feeds** | card→pod | thin dotted light purple |
 
-Structural edges (spine, stubs) use orthogonal routing; relationship edges use Bezier curves — shape carries meaning.
+Structural edges (spine, stubs) use orthogonal routing; relationship edges use Bezier curves; shape carries meaning.
 
 ### Four projections of one hierarchy (bonus: dual-views)
 
@@ -137,13 +137,13 @@ node dual-views/cli.mjs --source gh:owner/repo --out views
 
 ## Documentation
 
-- [Full guide](docs/GUIDE.md) — philosophy, quick start, feature reference, FAQ
-- [The workflow](docs/WORKFLOW.md) — the daily/weekly operating loop
-- [Use-case recipes](docs/USE-CASES.md) — 5 personas with folder shapes and link etiquette
-- [Changelog](CHANGELOG.md) — release index; per-component history in `fractal-index/` and `dual-views/`
-- [Gallery](docs/GALLERY.md) — rendered maps with captions
-- [Review and fixes](docs/REVIEW-AND-FIXES-2026-10-07.md) — changes, verification, and upstream PR handoff
-- [Examples](examples/README.md) — three installable brains, small → showcase scale
+- [Full guide](docs/GUIDE.md): philosophy, quick start, feature reference, FAQ
+- [The workflow](docs/WORKFLOW.md): the daily/weekly operating loop
+- [Use-case recipes](docs/USE-CASES.md): 5 personas with folder shapes and link etiquette
+- [Changelog](CHANGELOG.md): release index; per-component history in `fractal-index/` and `dual-views/`
+- [Gallery](docs/GALLERY.md): rendered maps with captions
+- [Review and fixes](docs/REVIEW-AND-FIXES-2026-10-07.md): changes, verification, and upstream PR handoff
+- [Examples](examples/README.md): three installable brains, small → showcase scale
 
 ## Requirements
 
