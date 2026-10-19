@@ -40,7 +40,7 @@ else changes.
 🧠 Folder name                    ← title (with ↑ breadcrumb to the parent map)
 │
 ├─ 📁 Pod (12)   [preview]        ← subfolder: count, live embed of its map,
-│   ⤢ click pod to dive             click to dive, concentric border = recursion
+│   ⤢ legend: click a pod to dive, click again to surface   concentric border = recursion
 │
 └─ 📝 Note card ──── arrows ────   ← files: icon by type, click opens the note
 ```
